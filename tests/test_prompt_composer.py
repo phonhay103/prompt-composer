@@ -40,13 +40,9 @@ class TestPromptSection:
         assert "available_tools" in variables
         assert "engine" in variables
 
-        # Backward compatibility alias
-        assert "engine" in section.get_slots()
-
         # Double braces variable extraction
         section_double = PromptSection(name="tools", content="Tools: {{available_tools}}")
         assert section_double.get_variables("double_braces") == ["available_tools"]
-        assert section_double.get_slots("double_braces") == ["available_tools"]
 
     def test_variable_rendering_with_filters(self):
         section = PromptSection(name="tools", content="Tools: {available_tools:upper}")
@@ -233,7 +229,7 @@ sections:
     content: "Be nice."
     tag_wrap: false
 """
-        composer = PromptComposer.from_yaml_text(template_yaml)
+        composer = PromptComposer.from_text(template_yaml, template_format="yaml")
 
         # Render normally
         rendered_normal = composer.render()
@@ -250,11 +246,18 @@ sections:
         assert "## role\nYou are a YAML assistant." in rendered_md
         assert "Be nice." in rendered_md  # tag_wrap=False remains unwrapped
 
-    def test_backward_compatibility_slot_aliases(self):
-        composer = PromptComposer(slot_style="braces")
-        composer.set_section("s", "Val: {x} and {y}")
-        composer.set_slot("x", "1")
-        composer.set_slots({"y": "2"})
-        assert composer.get_all_slots() == ["x", "y"]
-        assert composer.get_unresolved_slots() == []
-        assert "Val: 1 and 2" in composer.render()
+    def test_enums(self):
+        from prompt_composer import TemplateFormat, VariableStyle, OutputFormat
+        
+        composer = PromptComposer(variable_style=VariableStyle.DOUBLE_BRACES)
+        composer.set_section("s", "Val: {{x}}")
+        composer.set_variable("x", "100")
+        assert "Val: 100" in composer.render(output_format=OutputFormat.XML)
+
+        template_yaml = "sections:\n  - name: s\n    content: c"
+        composer2 = PromptComposer.from_text(
+            template_yaml,
+            template_format=TemplateFormat.YAML,
+            variable_style=VariableStyle.BRACES
+        )
+        assert composer2.list_sections() == ["s"]

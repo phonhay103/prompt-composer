@@ -77,10 +77,6 @@ class PromptSection:
                 i += 1
         return keys
 
-    # Backward compatibility alias
-    def get_slots(self, slot_style: str = "braces") -> List[str]:
-        """Extract all slot names (deprecated, use get_variables)."""
-        return self.get_variables(variable_style=slot_style)
 
     def render(
         self,

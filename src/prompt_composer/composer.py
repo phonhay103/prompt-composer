@@ -8,6 +8,7 @@ from collections import OrderedDict
 from prompt_composer.section import PromptSection
 from prompt_composer.parsers.base import BaseParser
 from prompt_composer.filters import DEFAULT_FILTERS
+from prompt_composer.enums import TemplateFormat, VariableStyle, OutputFormat
 
 
 class PromptComposer:
@@ -28,8 +29,7 @@ class PromptComposer:
         sections: Optional[List[PromptSection]] = None,
         preamble: str = "",
         epilogue: str = "",
-        variable_style: str = "braces",
-        **kwargs,
+        variable_style: Union[str, VariableStyle] = VariableStyle.BRACES,
     ) -> None:
         self._sections: OrderedDict[str, PromptSection] = OrderedDict()
         self._global_variables: Dict[str, Any] = {}
@@ -38,11 +38,10 @@ class PromptComposer:
         self._epilogue: str = epilogue
         self._filters: Dict[str, Callable[[Any], str]] = dict(DEFAULT_FILTERS)
 
-        # Support backward-compatible slot_style keyword argument
-        v_style = kwargs.get("slot_style", variable_style)
-        if v_style not in ("braces", "python", "double_braces", "jinja"):
-            raise ValueError(f"Unknown variable style: {v_style}")
-        self._variable_style: str = v_style
+        try:
+            self._variable_style: VariableStyle = VariableStyle(variable_style)
+        except ValueError:
+            raise ValueError(f"Unknown variable style: {variable_style}")
 
         if sections:
             for section in sections:
@@ -55,9 +54,8 @@ class PromptComposer:
         cls,
         filename: str,
         prompts_dir: pathlib.Path,
-        template_format: str = "auto",
-        variable_style: str = "braces",
-        **kwargs,
+        template_format: Union[str, TemplateFormat] = TemplateFormat.AUTO,
+        variable_style: Union[str, VariableStyle] = VariableStyle.BRACES,
     ) -> "PromptComposer":
         """
         Load a template file and parse it into sections.
@@ -67,56 +65,59 @@ class PromptComposer:
         with open(filepath, "r", encoding="utf-8") as f:
             raw_text = f.read()
 
-        fmt = template_format
-        if fmt == "auto":
+        try:
+            fmt = TemplateFormat(template_format)
+        except ValueError:
+            raise ValueError(f"Unknown template format: {template_format}")
+
+        if fmt == TemplateFormat.AUTO:
             suffix = filepath.suffix.lower()
             if suffix == ".json":
-                fmt = "json"
+                fmt = TemplateFormat.JSON
             elif suffix in (".yaml", ".yml"):
-                fmt = "yaml"
+                fmt = TemplateFormat.YAML
             elif suffix in (".md", ".markdown"):
-                fmt = "markdown"
+                fmt = TemplateFormat.MARKDOWN
             elif suffix == ".xml":
-                fmt = "xml"
+                fmt = TemplateFormat.XML
             else:
-                fmt = cls.detect_format(raw_text)
+                fmt = TemplateFormat(cls.detect_format(raw_text))
 
-        v_style = kwargs.get("slot_style", variable_style)
+        try:
+            v_style = VariableStyle(variable_style)
+        except ValueError:
+            raise ValueError(f"Unknown variable style: {variable_style}")
+
         return cls.from_text(raw_text, template_format=fmt, variable_style=v_style)
 
     @classmethod
     def from_text(
         cls,
         raw_text: str,
-        template_format: str = "auto",
-        variable_style: str = "braces",
-        **kwargs,
+        template_format: Union[str, TemplateFormat] = TemplateFormat.AUTO,
+        variable_style: Union[str, VariableStyle] = VariableStyle.BRACES,
     ) -> "PromptComposer":
         """Parse raw prompt text into sections."""
-        fmt = template_format
-        if fmt == "auto":
-            fmt = cls.detect_format(raw_text)
+        try:
+            fmt = TemplateFormat(template_format)
+        except ValueError:
+            raise ValueError(f"Unknown template format: {template_format}")
+
+        if fmt == TemplateFormat.AUTO:
+            fmt = TemplateFormat(cls.detect_format(raw_text))
 
         parser = cls.get_parser(fmt)
-        v_style = kwargs.get("slot_style", variable_style)
+        try:
+            v_style = VariableStyle(variable_style)
+        except ValueError:
+            raise ValueError(f"Unknown variable style: {variable_style}")
+
         preamble, sections, epilogue = parser.parse(raw_text, variable_style=v_style)
 
         composer = cls(variable_style=v_style, preamble=preamble, epilogue=epilogue)
         for section in sections:
             composer._sections[section.name] = section
         return composer
-
-    @classmethod
-    def from_json_text(cls, json_text: str, variable_style: str = "braces", **kwargs) -> "PromptComposer":
-        """Load structured prompt from a JSON string."""
-        v_style = kwargs.get("slot_style", variable_style)
-        return cls.from_text(json_text, template_format="json", variable_style=v_style)
-
-    @classmethod
-    def from_yaml_text(cls, yaml_text: str, variable_style: str = "braces", **kwargs) -> "PromptComposer":
-        """Load structured prompt from a YAML string."""
-        v_style = kwargs.get("slot_style", variable_style)
-        return cls.from_text(yaml_text, template_format="yaml", variable_style=v_style)
 
     @staticmethod
     def detect_format(text: str) -> str:
@@ -137,7 +138,7 @@ class PromptComposer:
         return "xml"
 
     @staticmethod
-    def get_parser(fmt: str) -> BaseParser:
+    def get_parser(fmt: TemplateFormat) -> BaseParser:
         """Get the parser instance corresponding to the given format name."""
         from prompt_composer.parsers.json import JsonParser
         from prompt_composer.parsers.yaml import YamlParser
@@ -145,10 +146,10 @@ class PromptComposer:
         from prompt_composer.parsers.markdown import MarkdownParser
 
         parsers = {
-            "json": JsonParser(),
-            "yaml": YamlParser(),
-            "xml": XmlParser(),
-            "markdown": MarkdownParser(),
+            TemplateFormat.JSON: JsonParser(),
+            TemplateFormat.YAML: YamlParser(),
+            TemplateFormat.XML: XmlParser(),
+            TemplateFormat.MARKDOWN: MarkdownParser(),
         }
         if fmt not in parsers:
             raise ValueError(f"Unknown template format: {fmt}")
@@ -276,28 +277,6 @@ class PromptComposer:
             resolved.update(section_variables.keys())
         return sorted(all_vars - resolved)
 
-    # --- Backward-Compatible Slot Management Aliases ---
-
-    def set_slot(self, key: str, value: Any) -> "PromptComposer":
-        """Deprecated: use set_variable."""
-        return self.set_variable(key, value)
-
-    def set_slots(self, slots: Dict[str, Any]) -> "PromptComposer":
-        """Deprecated: use set_variables."""
-        return self.set_variables(slots)
-
-    def set_section_slot(self, section_name: str, key: str, value: Any) -> "PromptComposer":
-        """Deprecated: use set_section_variable."""
-        return self.set_section_variable(section_name, key, value)
-
-    def get_all_slots(self) -> List[str]:
-        """Deprecated: use get_all_variables."""
-        return self.get_all_variables()
-
-    def get_unresolved_slots(self) -> List[str]:
-        """Deprecated: use get_unresolved_variables."""
-        return self.get_unresolved_variables()
-
     # --- Filter Management ---
 
     def register_filter(self, name: str, func: Callable[[Any], str]) -> "PromptComposer":
@@ -319,12 +298,17 @@ class PromptComposer:
 
     # --- Rendering ---
 
-    def render(self, output_format: Optional[str] = None) -> str:
+    def render(self, output_format: Optional[Union[str, OutputFormat]] = None) -> str:
         """Render the full prompt by concatenating all sections with variables filled."""
         parts: List[str] = []
 
         if self._preamble.strip():
             parts.append(self._apply_variables_to_text(self._preamble))
+
+        try:
+            out_fmt = OutputFormat(output_format) if output_format is not None else None
+        except ValueError:
+            raise ValueError(f"Unknown output format: {output_format}")
 
         for name, section in self._sections.items():
             merged_vars = dict(self._global_variables)
@@ -338,7 +322,7 @@ class PromptComposer:
                 merged_vars,
                 self._variable_style,
                 self._filters,
-                output_format=output_format,
+                output_format=out_fmt,
             )
             parts.append(rendered)
 
@@ -357,5 +341,5 @@ class PromptComposer:
         unresolved = self.get_unresolved_variables()
         return (
             f"PromptComposer(sections={sections}, "
-            f"unresolved_variables={unresolved}, variable_style='{self._variable_style}')"
+            f"unresolved_variables={unresolved}, variable_style='{self._variable_style.value}')"
         )
