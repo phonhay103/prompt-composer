@@ -261,3 +261,77 @@ sections:
             variable_style=VariableStyle.BRACES
         )
         assert composer2.list_sections() == ["s"]
+
+    def test_parser_injection(self):
+        from prompt_composer.parsers.base import BaseParser
+        from typing import Tuple, List
+        import tempfile
+        import pathlib
+
+        class MockCustomParser(BaseParser):
+            def parse(self, text: str, variable_style: str = "braces") -> Tuple[str, List[PromptSection], str]:
+                sections = []
+                for line in text.strip().split("\n"):
+                    if "=" in line:
+                        name, content = line.split("=", 1)
+                        sections.append(PromptSection(name=name.strip(), content=content.strip()))
+                return "Mock Preamble", sections, "Mock Epilogue"
+
+        # Instantiate mock parser
+        parser_instance = MockCustomParser()
+
+        # Test from_text with injected parser
+        composer = PromptComposer.from_text("role = System Admin\nrules = Be secure", parser=parser_instance)
+        assert composer.list_sections() == ["role", "rules"]
+        assert composer.get_section("role").content == "System Admin"
+        assert "Mock Preamble" in composer.render()
+
+        # Test from_file with injected parser
+        with tempfile.TemporaryDirectory() as tmpdir:
+            p = pathlib.Path(tmpdir) / "test.custom"
+            p.write_text("role = Custom Admin\nrules = Rule 1")
+            composer_file = PromptComposer.from_file("test.custom", pathlib.Path(tmpdir), parser=parser_instance)
+            assert composer_file.list_sections() == ["role", "rules"]
+            assert composer_file.get_section("role").content == "Custom Admin"
+
+    def test_advanced_boolean_conditions(self):
+        # NOT condition
+        sec_not = PromptSection("s", "Content", condition="NOT flag")
+        assert sec_not.should_render({"flag": False}) is True
+        assert sec_not.should_render({"flag": True}) is False
+
+        # AND condition
+        sec_and = PromptSection("s", "Content", condition="a AND b")
+        assert sec_and.should_render({"a": True, "b": True}) is True
+        assert sec_and.should_render({"a": True, "b": False}) is False
+
+        # OR condition
+        sec_or = PromptSection("s", "Content", condition="a OR b")
+        assert sec_or.should_render({"a": False, "b": True}) is True
+        assert sec_or.should_render({"a": False, "b": False}) is False
+
+        # Parenthesis and complex logic
+        sec_complex = PromptSection("s", "Content", condition="a AND (b OR NOT c)")
+        assert sec_complex.should_render({"a": True, "b": True, "c": True}) is True
+        assert sec_complex.should_render({"a": True, "b": False, "c": False}) is True
+        assert sec_complex.should_render({"a": True, "b": False, "c": True}) is False
+        assert sec_complex.should_render({"a": False, "b": True, "c": False}) is False
+
+        # Fallback to single variable lookup on syntax error
+        sec_err = PromptSection("s", "Content", condition="invalid syntax OR")
+        assert sec_err.should_render({"invalid syntax OR": True}) is True
+        assert sec_err.should_render({"invalid syntax OR": False}) is False
+
+    def test_chained_formatting_filters(self):
+        composer = PromptComposer()
+        composer.set_section("s", "Val: {x:upper:trim}")
+        composer.set_variable("x", "  hello  ")
+        assert "Val: HELLO" in composer.render()
+
+        # Chain 3 filters
+        composer.set_section("s2", "Val: {x:json:upper:trim}")
+        composer.set_variable("x", ["a", "b"])
+        # JSON output will be parsed, dumped, upper-cased, then trimmed
+        rendered = composer.render()
+        assert "Val: [\n  \"A\",\n  \"B\"\n]" in rendered or "Val: [\n  \"A\",\n  \"B\"\n]" in rendered
+

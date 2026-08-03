@@ -12,17 +12,6 @@ from prompt_composer.enums import TemplateFormat, VariableStyle, OutputFormat
 
 
 class PromptComposer:
-    """
-    Structured prompt manager with section-based composition and slot variables.
-
-    Two layers of composition:
-    - Sections: Named blocks of text (role, tools, rules, context, etc.)
-      that can be added/updated/removed independently.
-    - Variables: {variable} placeholders within sections, filled at render time.
-
-    Sections maintain insertion order. The final prompt is rendered by
-    concatenating all sections in order, with slot variables filled in.
-    """
 
     def __init__(
         self,
@@ -56,6 +45,7 @@ class PromptComposer:
         prompts_dir: pathlib.Path,
         template_format: Union[str, TemplateFormat] = TemplateFormat.AUTO,
         variable_style: Union[str, VariableStyle] = VariableStyle.BRACES,
+        parser: Optional[BaseParser] = None,
     ) -> "PromptComposer":
         """
         Load a template file and parse it into sections.
@@ -65,30 +55,33 @@ class PromptComposer:
         with open(filepath, "r", encoding="utf-8") as f:
             raw_text = f.read()
 
-        try:
-            fmt = TemplateFormat(template_format)
-        except ValueError:
-            raise ValueError(f"Unknown template format: {template_format}")
+        if parser is None:
+            try:
+                fmt = TemplateFormat(template_format)
+            except ValueError:
+                raise ValueError(f"Unknown template format: {template_format}")
 
-        if fmt == TemplateFormat.AUTO:
-            suffix = filepath.suffix.lower()
-            if suffix == ".json":
-                fmt = TemplateFormat.JSON
-            elif suffix in (".yaml", ".yml"):
-                fmt = TemplateFormat.YAML
-            elif suffix in (".md", ".markdown"):
-                fmt = TemplateFormat.MARKDOWN
-            elif suffix == ".xml":
-                fmt = TemplateFormat.XML
-            else:
-                fmt = TemplateFormat(cls.detect_format(raw_text))
+            if fmt == TemplateFormat.AUTO:
+                suffix = filepath.suffix.lower()
+                if suffix == ".json":
+                    fmt = TemplateFormat.JSON
+                elif suffix in (".yaml", ".yml"):
+                    fmt = TemplateFormat.YAML
+                elif suffix in (".md", ".markdown"):
+                    fmt = TemplateFormat.MARKDOWN
+                elif suffix == ".xml":
+                    fmt = TemplateFormat.XML
+                else:
+                    fmt = TemplateFormat(cls.detect_format(raw_text))
+        else:
+            fmt = template_format
 
         try:
             v_style = VariableStyle(variable_style)
         except ValueError:
             raise ValueError(f"Unknown variable style: {variable_style}")
 
-        return cls.from_text(raw_text, template_format=fmt, variable_style=v_style)
+        return cls.from_text(raw_text, template_format=fmt, variable_style=v_style, parser=parser)
 
     @classmethod
     def from_text(
@@ -96,17 +89,20 @@ class PromptComposer:
         raw_text: str,
         template_format: Union[str, TemplateFormat] = TemplateFormat.AUTO,
         variable_style: Union[str, VariableStyle] = VariableStyle.BRACES,
+        parser: Optional[BaseParser] = None,
     ) -> "PromptComposer":
         """Parse raw prompt text into sections."""
-        try:
-            fmt = TemplateFormat(template_format)
-        except ValueError:
-            raise ValueError(f"Unknown template format: {template_format}")
+        if parser is None:
+            try:
+                fmt = TemplateFormat(template_format)
+            except ValueError:
+                raise ValueError(f"Unknown template format: {template_format}")
 
-        if fmt == TemplateFormat.AUTO:
-            fmt = TemplateFormat(cls.detect_format(raw_text))
+            if fmt == TemplateFormat.AUTO:
+                fmt = TemplateFormat(cls.detect_format(raw_text))
 
-        parser = cls.get_parser(fmt)
+            parser = cls.get_parser(fmt)
+
         try:
             v_style = VariableStyle(variable_style)
         except ValueError:

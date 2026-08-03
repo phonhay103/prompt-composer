@@ -37,11 +37,97 @@ class PromptSection:
         """Evaluate the render condition against the current variables."""
         if self.condition is None:
             return True
-        if isinstance(self.condition, str):
-            return bool(variables.get(self.condition))
         if callable(self.condition):
             return bool(self.condition(variables))
+        if isinstance(self.condition, str):
+            cond_str = self.condition.strip()
+            # If condition contains spaces or standard operators, parse it
+            if any(op in cond_str for op in (" AND ", " OR ", "NOT ", "(", ")")):
+                return self._evaluate_boolean_expression(cond_str, variables)
+            return bool(variables.get(cond_str))
         return True
+
+    def _evaluate_boolean_expression(self, expr: str, variables: Dict[str, Any]) -> bool:
+        """
+        Safely evaluate a boolean expression with AND, OR, NOT operators.
+        Avoids eval() by using a simple recursive descent parser.
+        """
+        tokens = []
+        i = 0
+        n = len(expr)
+        while i < n:
+            if expr[i].isspace():
+                i += 1
+                continue
+            if expr[i] == '(':
+                tokens.append('(')
+                i += 1
+            elif expr[i] == ')':
+                tokens.append(')')
+                i += 1
+            else:
+                start = i
+                while i < n and not expr[i].isspace() and expr[i] not in ('(', ')'):
+                    i += 1
+                token = expr[start:i]
+                tokens.append(token)
+
+        idx = 0
+        num_tokens = len(tokens)
+
+        def peek():
+            if idx < num_tokens:
+                return tokens[idx]
+            return None
+
+        def consume(expected=None):
+            nonlocal idx
+            if idx >= num_tokens:
+                raise ValueError("Unexpected end of expression")
+            token = tokens[idx]
+            if expected and token != expected:
+                raise ValueError(f"Expected {expected}, got {token}")
+            idx += 1
+            return token
+
+        def parse_factor() -> bool:
+            token = peek()
+            if token == 'NOT':
+                consume('NOT')
+                return not parse_factor()
+            elif token == '(':
+                consume('(')
+                val = parse_expr()
+                consume(')')
+                return val
+            else:
+                ident = consume()
+                return bool(variables.get(ident))
+
+        def parse_term() -> bool:
+            val = parse_factor()
+            while peek() == 'AND':
+                consume('AND')
+                right = parse_factor()
+                val = val and right
+            return val
+
+        def parse_expr() -> bool:
+            val = parse_term()
+            while peek() == 'OR':
+                consume('OR')
+                right = parse_term()
+                val = val or right
+            return val
+
+        try:
+            result = parse_expr()
+            if idx < num_tokens:
+                raise ValueError(f"Unexpected token at end: {tokens[idx]}")
+            return result
+        except Exception:
+            return bool(variables.get(expr))
+
 
     def get_variables(self, variable_style: Union[str, VariableStyle] = VariableStyle.BRACES) -> List[str]:
         """Extract all variable names from this section's content."""
@@ -181,17 +267,16 @@ class PromptSection:
                     i = start_open + 1
                     continue
                 placeholder = text[start_open + 1 : end_close]
-                if ":" in placeholder:
-                    key, filter_name = placeholder.split(":", 1)
-                else:
-                    key, filter_name = placeholder, None
+                parts = placeholder.split(":")
+                key = parts[0]
+                filter_names = parts[1:]
                 if key.isidentifier():
                     if key in variables:
                         val = variables[key]
-                        if filter_name and filter_name in filters:
-                            result.append(filters[filter_name](val))
-                        else:
-                            result.append(str(val))
+                        for f_name in filter_names:
+                            if f_name in filters:
+                                val = filters[f_name](val)
+                        result.append(str(val))
                     else:
                         result.append(text[start_open : end_close + 1])
                     i = end_close + 1
@@ -211,17 +296,16 @@ class PromptSection:
                     i = start_open + 2
                     continue
                 placeholder = text[start_open + 2 : end_close]
-                if ":" in placeholder:
-                    key, filter_name = placeholder.split(":", 1)
-                else:
-                    key, filter_name = placeholder, None
+                parts = placeholder.split(":")
+                key = parts[0]
+                filter_names = parts[1:]
                 if key.isidentifier():
                     if key in variables:
                         val = variables[key]
-                        if filter_name and filter_name in filters:
-                            result.append(filters[filter_name](val))
-                        else:
-                            result.append(str(val))
+                        for f_name in filter_names:
+                            if f_name in filters:
+                                val = filters[f_name](val)
+                        result.append(str(val))
                     else:
                         result.append(text[start_open : end_close + 2])
                     i = end_close + 2
