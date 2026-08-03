@@ -128,13 +128,10 @@ class PromptComposer:
         if "sections:" in text or "preamble:" in text or "epilogue:" in text:
             return "yaml"
         
-        # Check for Markdown headings
-        for line in text.splitlines():
-            stripped = line.strip()
-            if stripped.startswith("#"):
-                parts = stripped.split(maxsplit=1)
-                if parts and all(c == "#" for c in parts[0]):
-                    return "markdown"
+        # Check for Markdown headings using optimized substring searches
+        for prefix in ("# ", "## ", "### ", "#### ", "##### ", "###### "):
+            if text.startswith(prefix) or f"\n{prefix}" in text:
+                return "markdown"
         return "xml"
 
     @staticmethod

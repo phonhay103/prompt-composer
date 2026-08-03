@@ -3,20 +3,21 @@
 from typing import Any, Dict, List, Optional, Union, Callable
 
 from prompt_composer.filters import DEFAULT_FILTERS
+from prompt_composer.enums import VariableStyle
 
 
 class PromptSection:
     """
     A named section within a prompt.
-    Contains text content with optional {slot} variables.
+    Contains text content with optional {variable} placeholders, or a callable returning content.
 
     Attributes:
         name: Section identifier (e.g., "role", "tools", "rules")
-        content: Raw text content, may contain {slot} placeholders, or a callable returning content.
+        content: Raw text content, may contain {variable} placeholders, or a callable.
         tag_wrap: If True, wrap content in <name>...</name> tags when rendering.
                   If a string starting with "#", treat as markdown header prefix.
                   If any other string, wrap in <tag_wrap>...</tag_wrap> tags.
-        condition: Optional slot key string or callable predicate. Section is only rendered if true.
+        condition: Optional variable key string or callable predicate. Section is only rendered if true.
     """
 
     def __init__(
@@ -30,6 +31,7 @@ class PromptSection:
         self.content = content
         self.tag_wrap = tag_wrap
         self.condition = condition
+        self._cached_variables: Dict[str, List[str]] = {}
 
     def should_render(self, variables: Dict[str, Any]) -> bool:
         """Evaluate the render condition against the current variables."""
@@ -41,49 +43,69 @@ class PromptSection:
             return bool(self.condition(variables))
         return True
 
-    def get_variables(self, variable_style: str = "braces") -> List[str]:
+    def get_variables(self, variable_style: Union[str, VariableStyle] = VariableStyle.BRACES) -> List[str]:
         """Extract all variable names from this section's content."""
         if callable(self.content):
             return []
+
+        style_str = str(variable_style)
+        if style_str in self._cached_variables:
+            return self._cached_variables[style_str]
 
         text = self.content
         keys: List[str] = []
         i = 0
         n = len(text)
 
-        if variable_style in ("braces", "python"):
+        try:
+            v_style = VariableStyle(variable_style)
+        except ValueError:
+            v_style = VariableStyle.BRACES
+
+        if v_style in (VariableStyle.BRACES, VariableStyle.PYTHON):
             while i < n:
-                if text[i] == "{" and (i == 0 or text[i - 1] != "\\"):
-                    j = text.find("}", i)
-                    if j != -1:
-                        placeholder = text[i + 1 : j]
-                        key = placeholder.split(":", 1)[0]
-                        if key.isidentifier() and key not in keys:
-                            keys.append(key)
-                        i = j + 1
-                        continue
-                i += 1
-        elif variable_style in ("double_braces", "jinja"):
+                start_open = text.find("{", i)
+                if start_open == -1:
+                    break
+                if start_open > 0 and text[start_open - 1] == "\\":
+                    i = start_open + 1
+                    continue
+                end_close = text.find("}", start_open + 1)
+                if end_close == -1:
+                    break
+                placeholder = text[start_open + 1 : end_close]
+                key = placeholder.split(":", 1)[0]
+                if key.isidentifier() and key not in keys:
+                    keys.append(key)
+                i = end_close + 1
+        elif v_style in (VariableStyle.DOUBLE_BRACES, VariableStyle.JINJA):
             while i < n:
-                if i + 1 < n and text[i : i + 2] == "{{":
-                    j = text.find("}}", i + 2)
-                    if j != -1:
-                        placeholder = text[i + 2 : j]
-                        key = placeholder.split(":", 1)[0]
-                        if key.isidentifier() and key not in keys:
-                            keys.append(key)
-                        i = j + 2
-                        continue
-                i += 1
+                start_open = text.find("{{", i)
+                if start_open == -1:
+                    break
+                end_close = text.find("}}", start_open + 2)
+                if end_close == -1:
+                    break
+                placeholder = text[start_open + 2 : end_close]
+                key = placeholder.split(":", 1)[0]
+                if key.isidentifier() and key not in keys:
+                    keys.append(key)
+                i = end_close + 2
+
+        self._cached_variables[style_str] = keys
         return keys
 
+    # Backward compatibility alias
+    def get_slots(self, slot_style: str = "braces") -> List[str]:
+        """Extract all slot names (deprecated, use get_variables)."""
+        return self.get_variables(variable_style=slot_style)
 
     def render(
         self,
         variables: Optional[Dict[str, Any]] = None,
-        variable_style: str = "braces",
+        variable_style: Union[str, VariableStyle] = VariableStyle.BRACES,
         filters: Optional[Dict[str, Callable[[Any], str]]] = None,
-        output_format: Optional[str] = None,
+        output_format: Optional[Any] = None,
     ) -> str:
         """
         Render this section, optionally filling variables and applying filters.
@@ -129,7 +151,7 @@ class PromptSection:
         self,
         text: str,
         variables: Dict[str, Any],
-        variable_style: str,
+        variable_style: Union[str, VariableStyle],
         filters: Dict[str, Callable[[Any], str]],
     ) -> str:
         """Perform regex-free variable replacement according to style."""
@@ -137,54 +159,75 @@ class PromptSection:
         i = 0
         n = len(text)
 
-        if variable_style in ("braces", "python"):
-            while i < n:
-                if text[i] == "{" and (i == 0 or text[i - 1] != "\\"):
-                    j = text.find("}", i)
-                    if j != -1:
-                        placeholder = text[i + 1 : j]
-                        if ":" in placeholder:
-                            key, filter_name = placeholder.split(":", 1)
-                        else:
-                            key, filter_name = placeholder, None
+        try:
+            v_style = VariableStyle(variable_style)
+        except ValueError:
+            v_style = VariableStyle.BRACES
 
-                        if key.isidentifier():
-                            if key in variables:
-                                val = variables[key]
-                                if filter_name and filter_name in filters:
-                                    result.append(filters[filter_name](val))
-                                else:
-                                    result.append(str(val))
-                            else:
-                                result.append(text[i : j + 1])
-                            i = j + 1
-                            continue
-                result.append(text[i])
-                i += 1
-        elif variable_style in ("double_braces", "jinja"):
+        if v_style in (VariableStyle.BRACES, VariableStyle.PYTHON):
             while i < n:
-                if i + 1 < n and text[i : i + 2] == "{{":
-                    j = text.find("}}", i + 2)
-                    if j != -1:
-                        placeholder = text[i + 2 : j]
-                        if ":" in placeholder:
-                            key, filter_name = placeholder.split(":", 1)
+                start_open = text.find("{", i)
+                if start_open == -1:
+                    result.append(text[i:])
+                    break
+                result.append(text[i:start_open])
+                if start_open > 0 and text[start_open - 1] == "\\":
+                    result.append("{")
+                    i = start_open + 1
+                    continue
+                end_close = text.find("}", start_open + 1)
+                if end_close == -1:
+                    result.append(text[start_open])
+                    i = start_open + 1
+                    continue
+                placeholder = text[start_open + 1 : end_close]
+                if ":" in placeholder:
+                    key, filter_name = placeholder.split(":", 1)
+                else:
+                    key, filter_name = placeholder, None
+                if key.isidentifier():
+                    if key in variables:
+                        val = variables[key]
+                        if filter_name and filter_name in filters:
+                            result.append(filters[filter_name](val))
                         else:
-                            key, filter_name = placeholder, None
-
-                        if key.isidentifier():
-                            if key in variables:
-                                val = variables[key]
-                                if filter_name and filter_name in filters:
-                                    result.append(filters[filter_name](val))
-                                else:
-                                    result.append(str(val))
-                            else:
-                                result.append(text[i : j + 2])
-                            i = j + 2
-                            continue
-                result.append(text[i])
-                i += 1
+                            result.append(str(val))
+                    else:
+                        result.append(text[start_open : end_close + 1])
+                    i = end_close + 1
+                else:
+                    result.append(text[start_open])
+                    i = start_open + 1
+        elif v_style in (VariableStyle.DOUBLE_BRACES, VariableStyle.JINJA):
+            while i < n:
+                start_open = text.find("{{", i)
+                if start_open == -1:
+                    result.append(text[i:])
+                    break
+                result.append(text[i:start_open])
+                end_close = text.find("}}", start_open + 2)
+                if end_close == -1:
+                    result.append(text[start_open : start_open + 2])
+                    i = start_open + 2
+                    continue
+                placeholder = text[start_open + 2 : end_close]
+                if ":" in placeholder:
+                    key, filter_name = placeholder.split(":", 1)
+                else:
+                    key, filter_name = placeholder, None
+                if key.isidentifier():
+                    if key in variables:
+                        val = variables[key]
+                        if filter_name and filter_name in filters:
+                            result.append(filters[filter_name](val))
+                        else:
+                            result.append(str(val))
+                    else:
+                        result.append(text[start_open : end_close + 2])
+                    i = end_close + 2
+                else:
+                    result.append(text[start_open : start_open + 2])
+                    i = start_open + 2
         else:
             return text
 
