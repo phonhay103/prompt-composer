@@ -1,0 +1,22 @@
+{
+  "preamble": "This is a preamble block.",
+  "sections": [
+    {
+      "name": "role",
+      "content": "You are a translation assistant named {name}.",
+      "tag_wrap": true
+    },
+    {
+      "name": "context",
+      "content": "Source text: {text:upper}",
+      "tag_wrap": "markdown"
+    },
+    {
+      "name": "tools",
+      "content": "Use these tools:\n{tools:json}",
+      "condition": "has_tools",
+      "tag_wrap": "xml"
+    }
+  ],
+  "epilogue": "Please output the translation now."
+}

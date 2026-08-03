@@ -1,0 +1,15 @@
+preamble: "This is a preamble block."
+sections:
+  - name: role
+    content: "You are a translation assistant named {name}."
+    tag_wrap: true
+  - name: context
+    content: "Source text: {text:upper}"
+    tag_wrap: "# Source Context"
+  - name: tools
+    content: |
+      Use these tools:
+      {tools:json}
+    condition: has_tools
+    tag_wrap: true
+epilogue: "Please output the translation now."
