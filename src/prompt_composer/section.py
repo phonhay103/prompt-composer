@@ -1,17 +1,8 @@
 """PromptSection — A named block of text within a composed prompt."""
 
-import json
 from typing import Any, Dict, List, Optional, Union, Callable
 
-DEFAULT_FILTERS: Dict[str, Callable[[Any], str]] = {
-    "json": lambda v: json.dumps(v, indent=2) if not isinstance(v, str) else v,
-    "upper": lambda v: str(v).upper(),
-    "lower": lambda v: str(v).lower(),
-    "trim": lambda v: str(v).strip(),
-    "strip": lambda v: str(v).strip(),
-    "indent2": lambda v: "\n".join("  " + line if line else line for line in str(v).splitlines()),
-    "indent4": lambda v: "\n".join("    " + line if line else line for line in str(v).splitlines()),
-}
+from prompt_composer.filters import DEFAULT_FILTERS
 
 
 class PromptSection:
@@ -40,18 +31,18 @@ class PromptSection:
         self.tag_wrap = tag_wrap
         self.condition = condition
 
-    def should_render(self, slots: Dict[str, Any]) -> bool:
-        """Evaluate the render condition against the current slots."""
+    def should_render(self, variables: Dict[str, Any]) -> bool:
+        """Evaluate the render condition against the current variables."""
         if self.condition is None:
             return True
         if isinstance(self.condition, str):
-            return bool(slots.get(self.condition))
+            return bool(variables.get(self.condition))
         if callable(self.condition):
-            return bool(self.condition(slots))
+            return bool(self.condition(variables))
         return True
 
-    def get_slots(self, slot_style: str = "braces") -> List[str]:
-        """Extract all slot variable names from this section's content."""
+    def get_variables(self, variable_style: str = "braces") -> List[str]:
+        """Extract all variable names from this section's content."""
         if callable(self.content):
             return []
 
@@ -60,7 +51,7 @@ class PromptSection:
         i = 0
         n = len(text)
 
-        if slot_style in ("braces", "python"):
+        if variable_style in ("braces", "python"):
             while i < n:
                 if text[i] == "{" and (i == 0 or text[i - 1] != "\\"):
                     j = text.find("}", i)
@@ -72,7 +63,7 @@ class PromptSection:
                         i = j + 1
                         continue
                 i += 1
-        elif slot_style in ("double_braces", "jinja"):
+        elif variable_style in ("double_braces", "jinja"):
             while i < n:
                 if i + 1 < n and text[i : i + 2] == "{{":
                     j = text.find("}}", i + 2)
@@ -86,33 +77,48 @@ class PromptSection:
                 i += 1
         return keys
 
+    # Backward compatibility alias
+    def get_slots(self, slot_style: str = "braces") -> List[str]:
+        """Extract all slot names (deprecated, use get_variables)."""
+        return self.get_variables(variable_style=slot_style)
+
     def render(
         self,
-        slots: Optional[Dict[str, Any]] = None,
-        slot_style: str = "braces",
+        variables: Optional[Dict[str, Any]] = None,
+        variable_style: str = "braces",
         filters: Optional[Dict[str, Callable[[Any], str]]] = None,
+        output_format: Optional[str] = None,
     ) -> str:
         """
-        Render this section, optionally filling slot variables and applying filters.
+        Render this section, optionally filling variables and applying filters.
 
         Args:
-            slots: Dict of {variable_name: value} to substitute.
-                   Unresolved slots are left as-is.
-            slot_style: Slot placeholder format ('braces' or 'double_braces')
+            variables: Dict of {variable_name: value} to substitute.
+                       Unresolved variables are left as-is.
+            variable_style: Variable placeholder format ('braces' or 'double_braces')
             filters: Dictionary of formatting filters
+            output_format: Optional forced output format ('xml' or 'markdown'/'md')
 
         Returns:
             Rendered section text, optionally wrapped in tags.
         """
         if callable(self.content):
-            content_str = self.content(slots or {})
+            content_str = self.content(variables or {})
         else:
             content_str = self.content
 
         rendered = content_str
-        if slots:
+        if variables:
             active_filters = filters if filters is not None else DEFAULT_FILTERS
-            rendered = self._replace_slots(content_str, slots, slot_style, active_filters)
+            rendered = self._replace_variables(content_str, variables, variable_style, active_filters)
+
+        if self.tag_wrap is False:
+            return rendered
+
+        if output_format == "xml":
+            return f"<{self.name}>\n{rendered}\n</{self.name}>"
+        elif output_format in ("markdown", "md"):
+            return f"## {self.name}\n{rendered}"
 
         if self.tag_wrap is True:
             return f"<{self.name}>\n{rendered}\n</{self.name}>"
@@ -123,19 +129,19 @@ class PromptSection:
                 return f"<{self.tag_wrap}>\n{rendered}\n</{self.tag_wrap}>"
         return rendered
 
-    def _replace_slots(
+    def _replace_variables(
         self,
         text: str,
-        slots: Dict[str, Any],
-        slot_style: str,
+        variables: Dict[str, Any],
+        variable_style: str,
         filters: Dict[str, Callable[[Any], str]],
     ) -> str:
-        """Perform regex-free slot replacement according to style."""
+        """Perform regex-free variable replacement according to style."""
         result = []
         i = 0
         n = len(text)
 
-        if slot_style in ("braces", "python"):
+        if variable_style in ("braces", "python"):
             while i < n:
                 if text[i] == "{" and (i == 0 or text[i - 1] != "\\"):
                     j = text.find("}", i)
@@ -147,8 +153,8 @@ class PromptSection:
                             key, filter_name = placeholder, None
 
                         if key.isidentifier():
-                            if key in slots:
-                                val = slots[key]
+                            if key in variables:
+                                val = variables[key]
                                 if filter_name and filter_name in filters:
                                     result.append(filters[filter_name](val))
                                 else:
@@ -159,7 +165,7 @@ class PromptSection:
                             continue
                 result.append(text[i])
                 i += 1
-        elif slot_style in ("double_braces", "jinja"):
+        elif variable_style in ("double_braces", "jinja"):
             while i < n:
                 if i + 1 < n and text[i : i + 2] == "{{":
                     j = text.find("}}", i + 2)
@@ -171,8 +177,8 @@ class PromptSection:
                             key, filter_name = placeholder, None
 
                         if key.isidentifier():
-                            if key in slots:
-                                val = slots[key]
+                            if key in variables:
+                                val = variables[key]
                                 if filter_name and filter_name in filters:
                                     result.append(filters[filter_name](val))
                                 else:
@@ -191,10 +197,10 @@ class PromptSection:
     def __repr__(self) -> str:
         if callable(self.content):
             content_desc = "<callable>"
-            slots: List[str] = []
+            vars_list: List[str] = []
         else:
             content_desc = f"'{self.content[:20]}...'"
-            slots = self.get_slots()
-        slot_info = f", slots={slots}" if slots else ""
+            vars_list = self.get_variables()
+        var_info = f", variables={vars_list}" if vars_list else ""
         cond_info = f", condition={self.condition}" if self.condition else ""
-        return f"PromptSection(name='{self.name}', content={content_desc}{slot_info}{cond_info})"
+        return f"PromptSection(name='{self.name}', content={content_desc}{var_info}{cond_info})"

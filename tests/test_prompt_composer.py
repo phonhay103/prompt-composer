@@ -34,41 +34,45 @@ class TestPromptSection:
         rendered = section.render()
         assert rendered == "## Role Header\nYou are an expert."
 
-    def test_slot_extraction(self):
+    def test_variable_extraction(self):
         section = PromptSection(name="tools", content="Tools: {available_tools}\nEngine: {engine}")
-        slots = section.get_slots()
-        assert "available_tools" in slots
-        assert "engine" in slots
+        variables = section.get_variables()
+        assert "available_tools" in variables
+        assert "engine" in variables
 
-        # Double braces slot extraction
+        # Backward compatibility alias
+        assert "engine" in section.get_slots()
+
+        # Double braces variable extraction
         section_double = PromptSection(name="tools", content="Tools: {{available_tools}}")
+        assert section_double.get_variables("double_braces") == ["available_tools"]
         assert section_double.get_slots("double_braces") == ["available_tools"]
 
-    def test_slot_rendering_with_filters(self):
+    def test_variable_rendering_with_filters(self):
         section = PromptSection(name="tools", content="Tools: {available_tools:upper}")
         rendered = section.render({"available_tools": "tool1, tool2"})
         assert "TOOL1, TOOL2" in rendered
 
-    def test_unresolved_slots_preserved(self):
+    def test_unresolved_variables_preserved(self):
         section = PromptSection(name="tools", content="{resolved} and {unresolved}")
         rendered = section.render({"resolved": "VALUE"})
         assert "VALUE" in rendered
         assert "{unresolved}" in rendered
 
     def test_condition_eval(self):
-        # String condition checking slot presence
+        # String condition checking variable presence
         section1 = PromptSection(name="sec", content="Content", condition="flag")
         assert section1.should_render({"flag": True}) is True
         assert section1.should_render({"flag": False}) is False
         assert section1.should_render({}) is False
 
-        # Callable condition checking slot value
-        section2 = PromptSection(name="sec", content="Content", condition=lambda slots: slots.get("x", 0) > 5)
+        # Callable condition checking variable value
+        section2 = PromptSection(name="sec", content="Content", condition=lambda vars: vars.get("x", 0) > 5)
         assert section2.should_render({"x": 10}) is True
         assert section2.should_render({"x": 2}) is False
 
     def test_callable_content(self):
-        section = PromptSection(name="sec", content=lambda slots: f"Mode: {slots.get('mode')}", tag_wrap=False)
+        section = PromptSection(name="sec", content=lambda vars: f"Mode: {vars.get('mode')}", tag_wrap=False)
         rendered = section.render({"mode": "fast"})
         assert rendered == "Mode: fast"
 
@@ -76,7 +80,7 @@ class TestPromptSection:
         section = PromptSection(name="tools", content="{x}")
         r = repr(section)
         assert "tools" in r
-        assert "slots" in r
+        assert "variables" in r
 
 
 # --- PromptComposer Factory & Formats Tests ---
@@ -100,7 +104,7 @@ class TestPromptComposerFactory:
         }
         composer = PromptComposer.from_text(json.dumps(template))
         assert composer.list_sections() == ["role", "context"]
-        composer.set_slot("text", "world")
+        composer.set_variable("text", "world")
         rendered = composer.render()
         assert "Hello JSON" in rendered
         assert "<role>\nYou are a translator.\n</role>" in rendered
@@ -161,26 +165,26 @@ class TestProgrammaticHelpers:
         assert "Pre" in composer.render()
 
 
-# --- Slot Management Tests ---
+# --- Variable Management Tests ---
 
-class TestSlotManagement:
-    def test_slot_styles(self):
+class TestVariableManagement:
+    def test_variable_styles(self):
         # Braces style (default)
-        c1 = PromptComposer(slot_style="braces")
+        c1 = PromptComposer(variable_style="braces")
         c1.set_section("s1", "Val: {x}")
-        c1.set_slot("x", "1")
+        c1.set_variable("x", "1")
         assert "Val: 1" in c1.render()
 
         # Double braces style
-        c2 = PromptComposer(slot_style="double_braces")
+        c2 = PromptComposer(variable_style="double_braces")
         c2.set_section("s1", "Val: {{x}}")
-        c2.set_slot("x", "2")
+        c2.set_variable("x", "2")
         assert "Val: 2" in c2.render()
 
     def test_filters(self):
         composer = PromptComposer()
         composer.set_section("s", "Json: {d:json} Upper: {u:upper} Indent: {i:indent2}")
-        composer.set_slots({
+        composer.set_variables({
             "d": {"a": 1},
             "u": "low",
             "i": "line1\nline2"
@@ -194,5 +198,63 @@ class TestSlotManagement:
         composer = PromptComposer()
         composer.register_filter("custom", lambda v: f"*{v}*")
         composer.set_section("s", "Val: {x:custom}")
-        composer.set_slot("x", "hello")
+        composer.set_variable("x", "hello")
         assert "Val: *hello*" in composer.render()
+
+    def test_markdown_parsing(self):
+        template = """
+This is the preamble.
+
+## role
+You are an assistant.
+
+## tools
+{available_tools}
+"""
+        composer = PromptComposer.from_text(template)
+        assert composer._preamble == "This is the preamble."
+        assert composer.list_sections() == ["role", "tools"]
+        assert composer.get_section("role").content == "You are an assistant."
+        assert composer.get_section("role").tag_wrap == "## role"
+
+        composer.set_variable("available_tools", "Tool1")
+        rendered = composer.render()
+        assert "This is the preamble." in rendered
+        assert "## role\nYou are an assistant." in rendered
+        assert "## tools\nTool1" in rendered
+
+    def test_output_formatting(self):
+        template_yaml = """
+sections:
+  - name: role
+    content: "You are a YAML assistant."
+    tag_wrap: true
+  - name: rules
+    content: "Be nice."
+    tag_wrap: false
+"""
+        composer = PromptComposer.from_yaml_text(template_yaml)
+
+        # Render normally
+        rendered_normal = composer.render()
+        assert "<role>\nYou are a YAML assistant.\n</role>" in rendered_normal
+        assert "Be nice." in rendered_normal
+
+        # Force XML
+        rendered_xml = composer.render(output_format="xml")
+        assert "<role>\nYou are a YAML assistant.\n</role>" in rendered_xml
+        assert "Be nice." in rendered_xml  # tag_wrap=False remains unwrapped
+
+        # Force Markdown / md
+        rendered_md = composer.render(output_format="markdown")
+        assert "## role\nYou are a YAML assistant." in rendered_md
+        assert "Be nice." in rendered_md  # tag_wrap=False remains unwrapped
+
+    def test_backward_compatibility_slot_aliases(self):
+        composer = PromptComposer(slot_style="braces")
+        composer.set_section("s", "Val: {x} and {y}")
+        composer.set_slot("x", "1")
+        composer.set_slots({"y": "2"})
+        assert composer.get_all_slots() == ["x", "y"]
+        assert composer.get_unresolved_slots() == []
+        assert "Val: 1 and 2" in composer.render()

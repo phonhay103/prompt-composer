@@ -6,16 +6,8 @@ from typing import Any, Dict, List, Optional, Union, Callable
 from collections import OrderedDict
 
 from prompt_composer.section import PromptSection
-
-DEFAULT_FILTERS: Dict[str, Callable[[Any], str]] = {
-    "json": lambda v: json.dumps(v, indent=2) if not isinstance(v, str) else v,
-    "upper": lambda v: str(v).upper(),
-    "lower": lambda v: str(v).lower(),
-    "trim": lambda v: str(v).strip(),
-    "strip": lambda v: str(v).strip(),
-    "indent2": lambda v: "\n".join("  " + line if line else line for line in str(v).splitlines()),
-    "indent4": lambda v: "\n".join("    " + line if line else line for line in str(v).splitlines()),
-}
+from prompt_composer.parsers.base import BaseParser
+from prompt_composer.filters import DEFAULT_FILTERS
 
 
 class PromptComposer:
@@ -25,7 +17,7 @@ class PromptComposer:
     Two layers of composition:
     - Sections: Named blocks of text (role, tools, rules, context, etc.)
       that can be added/updated/removed independently.
-    - Slots: {variable} placeholders within sections, filled at render time.
+    - Variables: {variable} placeholders within sections, filled at render time.
 
     Sections maintain insertion order. The final prompt is rendered by
     concatenating all sections in order, with slot variables filled in.
@@ -36,18 +28,21 @@ class PromptComposer:
         sections: Optional[List[PromptSection]] = None,
         preamble: str = "",
         epilogue: str = "",
-        slot_style: str = "braces",
+        variable_style: str = "braces",
+        **kwargs,
     ) -> None:
         self._sections: OrderedDict[str, PromptSection] = OrderedDict()
-        self._global_slots: Dict[str, Any] = {}
-        self._section_slots: Dict[str, Dict[str, Any]] = {}
+        self._global_variables: Dict[str, Any] = {}
+        self._section_variables: Dict[str, Dict[str, Any]] = {}
         self._preamble: str = preamble
         self._epilogue: str = epilogue
         self._filters: Dict[str, Callable[[Any], str]] = dict(DEFAULT_FILTERS)
 
-        if slot_style not in ("braces", "python", "double_braces", "jinja"):
-            raise ValueError(f"Unknown slot style: {slot_style}")
-        self._slot_style: str = slot_style
+        # Support backward-compatible slot_style keyword argument
+        v_style = kwargs.get("slot_style", variable_style)
+        if v_style not in ("braces", "python", "double_braces", "jinja"):
+            raise ValueError(f"Unknown variable style: {v_style}")
+        self._variable_style: str = v_style
 
         if sections:
             for section in sections:
@@ -61,11 +56,12 @@ class PromptComposer:
         filename: str,
         prompts_dir: pathlib.Path,
         template_format: str = "auto",
-        slot_style: str = "braces",
+        variable_style: str = "braces",
+        **kwargs,
     ) -> "PromptComposer":
         """
         Load a template file and parse it into sections.
-        Automatically detects JSON, YAML, or XML formats based on file extension and contents.
+        Automatically detects JSON, YAML, XML, or Markdown formats based on file extension and contents.
         """
         filepath = prompts_dir / filename
         with open(filepath, "r", encoding="utf-8") as f:
@@ -73,92 +69,90 @@ class PromptComposer:
 
         fmt = template_format
         if fmt == "auto":
-            if filepath.suffix in (".json",):
+            suffix = filepath.suffix.lower()
+            if suffix == ".json":
                 fmt = "json"
-            elif filepath.suffix in (".yaml", ".yml"):
+            elif suffix in (".yaml", ".yml"):
                 fmt = "yaml"
+            elif suffix in (".md", ".markdown"):
+                fmt = "markdown"
+            elif suffix == ".xml":
+                fmt = "xml"
             else:
-                # Text content-based auto detection
-                trimmed = raw_text.strip()
-                if trimmed.startswith("{") and trimmed.endswith("}"):
-                    fmt = "json"
-                elif (
-                    "sections:" in raw_text
-                    or "preamble:" in raw_text
-                    or "epilogue:" in raw_text
-                ):
-                    fmt = "yaml"
-                else:
-                    fmt = "xml"
+                fmt = cls.detect_format(raw_text)
 
-        if fmt == "json":
-            return cls.from_json_text(raw_text, slot_style=slot_style)
-        elif fmt == "yaml":
-            return cls.from_yaml_text(raw_text, slot_style=slot_style)
-        else:
-            composer = cls(slot_style=slot_style)
-            composer._parse_xml(raw_text)
-            return composer
+        v_style = kwargs.get("slot_style", variable_style)
+        return cls.from_text(raw_text, template_format=fmt, variable_style=v_style)
 
     @classmethod
     def from_text(
         cls,
         raw_text: str,
         template_format: str = "auto",
-        slot_style: str = "braces",
+        variable_style: str = "braces",
+        **kwargs,
     ) -> "PromptComposer":
         """Parse raw prompt text into sections."""
         fmt = template_format
         if fmt == "auto":
-            trimmed = raw_text.strip()
-            if trimmed.startswith("{") and trimmed.endswith("}"):
-                fmt = "json"
-            elif (
-                "sections:" in raw_text
-                or "preamble:" in raw_text
-                or "epilogue:" in raw_text
-            ):
-                fmt = "yaml"
-            else:
-                fmt = "xml"
+            fmt = cls.detect_format(raw_text)
 
-        if fmt == "json":
-            return cls.from_json_text(raw_text, slot_style=slot_style)
-        elif fmt == "yaml":
-            return cls.from_yaml_text(raw_text, slot_style=slot_style)
-        else:
-            composer = cls(slot_style=slot_style)
-            composer._parse_xml(raw_text)
-            return composer
+        parser = cls.get_parser(fmt)
+        v_style = kwargs.get("slot_style", variable_style)
+        preamble, sections, epilogue = parser.parse(raw_text, variable_style=v_style)
 
-    @classmethod
-    def from_json_text(cls, json_text: str, slot_style: str = "braces") -> "PromptComposer":
-        """Load structured prompt from a JSON string."""
-        data = json.loads(json_text)
-        return cls._from_dict(data, slot_style=slot_style)
-
-    @classmethod
-    def from_yaml_text(cls, yaml_text: str, slot_style: str = "braces") -> "PromptComposer":
-        """Load structured prompt from a YAML string."""
-        import yaml
-        data = yaml.safe_load(yaml_text) or {}
-        return cls._from_dict(data, slot_style=slot_style)
-
-    @classmethod
-    def _from_dict(cls, data: dict, slot_style: str = "braces") -> "PromptComposer":
-        composer = cls(slot_style=slot_style)
-        composer._preamble = data.get("preamble", "")
-        composer._epilogue = data.get("epilogue", "")
-
-        # Load sections
-        for item in data.get("sections", []):
-            name = item["name"]
-            content = item["content"]
-            tag_wrap = item.get("tag_wrap", True)
-            condition = item.get("condition", None)
-            composer.set_section(name, content, tag_wrap=tag_wrap, condition=condition)
-
+        composer = cls(variable_style=v_style, preamble=preamble, epilogue=epilogue)
+        for section in sections:
+            composer._sections[section.name] = section
         return composer
+
+    @classmethod
+    def from_json_text(cls, json_text: str, variable_style: str = "braces", **kwargs) -> "PromptComposer":
+        """Load structured prompt from a JSON string."""
+        v_style = kwargs.get("slot_style", variable_style)
+        return cls.from_text(json_text, template_format="json", variable_style=v_style)
+
+    @classmethod
+    def from_yaml_text(cls, yaml_text: str, variable_style: str = "braces", **kwargs) -> "PromptComposer":
+        """Load structured prompt from a YAML string."""
+        v_style = kwargs.get("slot_style", variable_style)
+        return cls.from_text(yaml_text, template_format="yaml", variable_style=v_style)
+
+    @staticmethod
+    def detect_format(text: str) -> str:
+        """Detect template format based on content analysis."""
+        trimmed = text.strip()
+        if trimmed.startswith("{") and trimmed.endswith("}"):
+            return "json"
+        if "sections:" in text or "preamble:" in text or "epilogue:" in text:
+            return "yaml"
+        
+        # Check for Markdown headings
+        for line in text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                parts = stripped.split(maxsplit=1)
+                if parts and all(c == "#" for c in parts[0]):
+                    return "markdown"
+        return "xml"
+
+    @staticmethod
+    def get_parser(fmt: str) -> BaseParser:
+        """Get the parser instance corresponding to the given format name."""
+        from prompt_composer.parsers.json import JsonParser
+        from prompt_composer.parsers.yaml import YamlParser
+        from prompt_composer.parsers.xml import XmlParser
+        from prompt_composer.parsers.markdown import MarkdownParser
+
+        parsers = {
+            "json": JsonParser(),
+            "yaml": YamlParser(),
+            "xml": XmlParser(),
+            "markdown": MarkdownParser(),
+        }
+        if fmt not in parsers:
+            raise ValueError(f"Unknown template format: {fmt}")
+        return parsers[fmt]
 
     # --- Section Management ---
 
@@ -189,7 +183,7 @@ class PromptComposer:
     def remove_section(self, name: str) -> "PromptComposer":
         """Remove a section by name."""
         self._sections.pop(name, None)
-        self._section_slots.pop(name, None)
+        self._section_variables.pop(name, None)
         return self
 
     def has_section(self, name: str) -> bool:
@@ -247,45 +241,67 @@ class PromptComposer:
         """Set the 'context' section."""
         return self.set_section("context", content, tag_wrap=tag_wrap, condition=condition)
 
-    # --- Slot Management ---
+    # --- Variable Management ---
+
+    def set_variable(self, key: str, value: Any) -> "PromptComposer":
+        """Set a global template variable."""
+        self._global_variables[key] = value
+        return self
+
+    def set_variables(self, variables: Dict[str, Any]) -> "PromptComposer":
+        """Set multiple global template variables at once."""
+        for key, value in variables.items():
+            self._global_variables[key] = value
+        return self
+
+    def set_section_variable(self, section_name: str, key: str, value: Any) -> "PromptComposer":
+        """Set a template variable scoped to a specific section."""
+        if section_name not in self._section_variables:
+            self._section_variables[section_name] = {}
+        self._section_variables[section_name][key] = value
+        return self
+
+    def get_all_variables(self) -> List[str]:
+        """List all variable names found across all sections."""
+        all_vars: set[str] = set()
+        for section in self._sections.values():
+            all_vars.update(section.get_variables(self._variable_style))
+        return sorted(all_vars)
+
+    def get_unresolved_variables(self) -> List[str]:
+        """List variable names that have not been set (global or section-scoped)."""
+        all_vars = set(self.get_all_variables())
+        resolved: set[str] = set(self._global_variables.keys())
+        for section_variables in self._section_variables.values():
+            resolved.update(section_variables.keys())
+        return sorted(all_vars - resolved)
+
+    # --- Backward-Compatible Slot Management Aliases ---
 
     def set_slot(self, key: str, value: Any) -> "PromptComposer":
-        """Set a global slot variable."""
-        self._global_slots[key] = value
-        return self
+        """Deprecated: use set_variable."""
+        return self.set_variable(key, value)
 
     def set_slots(self, slots: Dict[str, Any]) -> "PromptComposer":
-        """Set multiple global slot variables at once."""
-        for key, value in slots.items():
-            self._global_slots[key] = value
-        return self
+        """Deprecated: use set_variables."""
+        return self.set_variables(slots)
 
     def set_section_slot(self, section_name: str, key: str, value: Any) -> "PromptComposer":
-        """Set a slot variable scoped to a specific section."""
-        if section_name not in self._section_slots:
-            self._section_slots[section_name] = {}
-        self._section_slots[section_name][key] = value
-        return self
+        """Deprecated: use set_section_variable."""
+        return self.set_section_variable(section_name, key, value)
 
     def get_all_slots(self) -> List[str]:
-        """List all slot variable names found across all sections."""
-        all_slots: set[str] = set()
-        for section in self._sections.values():
-            all_slots.update(section.get_slots(self._slot_style))
-        return sorted(all_slots)
+        """Deprecated: use get_all_variables."""
+        return self.get_all_variables()
 
     def get_unresolved_slots(self) -> List[str]:
-        """List slot variable names that have not been set (global or section-scoped)."""
-        all_slots = set(self.get_all_slots())
-        resolved: set[str] = set(self._global_slots.keys())
-        for section_slots in self._section_slots.values():
-            resolved.update(section_slots.keys())
-        return sorted(all_slots - resolved)
+        """Deprecated: use get_unresolved_variables."""
+        return self.get_unresolved_variables()
 
     # --- Filter Management ---
 
     def register_filter(self, name: str, func: Callable[[Any], str]) -> "PromptComposer":
-        """Register a custom filter for slot values."""
+        """Register a custom filter for template values."""
         self._filters[name] = func
         return self
 
@@ -303,82 +319,43 @@ class PromptComposer:
 
     # --- Rendering ---
 
-    def render(self) -> str:
-        """Render the full prompt by concatenating all sections with slots filled."""
+    def render(self, output_format: Optional[str] = None) -> str:
+        """Render the full prompt by concatenating all sections with variables filled."""
         parts: List[str] = []
 
         if self._preamble.strip():
-            # Apply slots to preamble using section.py's regex-free replacement
-            parts.append(self._apply_slots_to_text(self._preamble))
+            parts.append(self._apply_variables_to_text(self._preamble))
 
         for name, section in self._sections.items():
-            merged_slots = dict(self._global_slots)
-            if name in self._section_slots:
-                merged_slots.update(self._section_slots[name])
+            merged_vars = dict(self._global_variables)
+            if name in self._section_variables:
+                merged_vars.update(self._section_variables[name])
 
-            if not section.should_render(merged_slots):
+            if not section.should_render(merged_vars):
                 continue
 
-            rendered = section.render(merged_slots, self._slot_style, self._filters)
+            rendered = section.render(
+                merged_vars,
+                self._variable_style,
+                self._filters,
+                output_format=output_format,
+            )
             parts.append(rendered)
 
         if self._epilogue.strip():
-            parts.append(self._apply_slots_to_text(self._epilogue))
+            parts.append(self._apply_variables_to_text(self._epilogue))
 
         return "\n\n".join(parts)
 
-    # --- Internal Parsing ---
-
-    def _parse_xml(self, text: str) -> None:
-        """Parse raw template text into sections using a 100% regex-free XML tag scanner."""
-        self._sections.clear()
-        i = 0
-        n = len(text)
-        last_end = 0
-
-        while i < n:
-            start_open = text.find("<", i)
-            if start_open == -1:
-                break
-            end_open = text.find(">", start_open)
-            if end_open == -1:
-                break
-
-            tag_name = text[start_open + 1 : end_open].strip()
-            # Valid tag name check (alphanumeric and underscores only, not a closing tag)
-            if tag_name.startswith("/") or not tag_name.replace("_", "").isalnum():
-                i = start_open + 1
-                continue
-
-            close_tag = f"</{tag_name}>"
-            start_close = text.find(close_tag, end_open + 1)
-            if start_close == -1:
-                i = start_open + 1
-                continue
-
-            content = text[end_open + 1 : start_close].strip()
-
-            if not self._sections:
-                self._preamble = text[last_end:start_open].strip()
-
-            self._sections[tag_name] = PromptSection(name=tag_name, content=content, tag_wrap=True)
-            last_end = start_close + len(close_tag)
-            i = last_end
-
-        if not self._sections:
-            self._preamble = text.strip()
-        else:
-            self._epilogue = text[last_end:].strip()
-
-    def _apply_slots_to_text(self, text: str) -> str:
-        """Helper to apply slots directly to preamble/epilogue."""
+    def _apply_variables_to_text(self, text: str) -> str:
+        """Helper to apply variables directly to preamble/epilogue."""
         dummy_section = PromptSection(name="dummy", content=text, tag_wrap=False)
-        return dummy_section.render(self._global_slots, self._slot_style, self._filters)
+        return dummy_section.render(self._global_variables, self._variable_style, self._filters)
 
     def __repr__(self) -> str:
         sections = self.list_sections()
-        unresolved = self.get_unresolved_slots()
+        unresolved = self.get_unresolved_variables()
         return (
             f"PromptComposer(sections={sections}, "
-            f"unresolved_slots={unresolved}, slot_style='{self._slot_style}')"
+            f"unresolved_variables={unresolved}, variable_style='{self._variable_style}')"
         )
