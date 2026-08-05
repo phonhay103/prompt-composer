@@ -1,14 +1,13 @@
 """Base template parser protocol/interface."""
 
-from abc import ABC, abstractmethod
-from typing import Tuple, List
+from typing import Tuple, List, Protocol, runtime_checkable
 from prompt_composer.section import PromptSection
 
 
-class BaseParser(ABC):
-    """Abstract base class for all template format parsers."""
+@runtime_checkable
+class BaseParser(Protocol):
+    """Protocol for all template format parsers."""
 
-    @abstractmethod
     def parse(
         self, text: str, variable_style: str = "braces"
     ) -> Tuple[str, List[PromptSection], str]:
@@ -22,4 +21,5 @@ class BaseParser(ABC):
         Returns:
             A tuple of (preamble, list of PromptSections, epilogue).
         """
-        pass
+        ...
+
