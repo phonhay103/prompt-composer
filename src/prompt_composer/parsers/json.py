@@ -1,7 +1,7 @@
 """JSON template parser implementation."""
 
 import json
-from typing import Tuple, List
+from typing import Tuple, List, Dict, Any
 from prompt_composer.parsers.base import BaseParser
 from prompt_composer.section import PromptSection
 
@@ -11,8 +11,12 @@ class JsonParser(BaseParser):
 
     def parse(
         self, text: str, variable_style: str = "braces"
-    ) -> Tuple[str, List[PromptSection], str]:
+    ) -> Tuple[str, List[PromptSection], str, Dict[str, Any]]:
         data = json.loads(text)
+        metadata = data.pop("metadata", {})
+        if not isinstance(metadata, dict):
+            metadata = {}
+
         preamble = data.get("preamble", "")
         epilogue = data.get("epilogue", "")
         sections: List[PromptSection] = []
@@ -28,4 +32,4 @@ class JsonParser(BaseParser):
                 )
             )
 
-        return preamble, sections, epilogue
+        return preamble, sections, epilogue, metadata

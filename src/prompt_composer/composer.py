@@ -19,6 +19,7 @@ class PromptComposer:
         preamble: str = "",
         epilogue: str = "",
         variable_style: Union[str, VariableStyle] = VariableStyle.BRACES,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         self._sections: OrderedDict[str, PromptSection] = OrderedDict()
         self._global_variables: Dict[str, Any] = {}
@@ -26,6 +27,7 @@ class PromptComposer:
         self._preamble: str = preamble
         self._epilogue: str = epilogue
         self._filters: Dict[str, Callable[[Any], str]] = dict(DEFAULT_FILTERS)
+        self._metadata: Dict[str, Any] = metadata or {}
 
         try:
             self._variable_style: VariableStyle = VariableStyle(variable_style)
@@ -35,6 +37,16 @@ class PromptComposer:
         if sections:
             for section in sections:
                 self._sections[section.name] = section
+
+    @property
+    def metadata(self) -> Dict[str, Any]:
+        """Get the prompt metadata."""
+        return self._metadata
+
+    @metadata.setter
+    def metadata(self, val: Dict[str, Any]) -> None:
+        """Set the prompt metadata."""
+        self._metadata = val or {}
 
     # --- Factory Methods ---
 
@@ -108,9 +120,14 @@ class PromptComposer:
         except ValueError:
             raise ValueError(f"Unknown variable style: {variable_style}")
 
-        preamble, sections, epilogue = parser.parse(raw_text, variable_style=v_style)
+        parsed = parser.parse(raw_text, variable_style=v_style)
+        if len(parsed) == 4:
+            preamble, sections, epilogue, metadata = parsed
+        else:
+            preamble, sections, epilogue = parsed
+            metadata = {}
 
-        composer = cls(variable_style=v_style, preamble=preamble, epilogue=epilogue)
+        composer = cls(variable_style=v_style, preamble=preamble, epilogue=epilogue, metadata=metadata)
         for section in sections:
             composer._sections[section.name] = section
         return composer
@@ -334,5 +351,6 @@ class PromptComposer:
         unresolved = self.get_unresolved_variables()
         return (
             f"PromptComposer(sections={sections}, "
-            f"unresolved_variables={unresolved}, variable_style='{self._variable_style.value}')"
+            f"unresolved_variables={unresolved}, variable_style='{self._variable_style.value}', "
+            f"metadata={self._metadata})"
         )

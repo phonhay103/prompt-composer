@@ -264,18 +264,18 @@ sections:
 
     def test_parser_injection(self):
         from prompt_composer.parsers.base import BaseParser
-        from typing import Tuple, List
+        from typing import Tuple, List, Dict, Any
         import tempfile
         import pathlib
 
         class MockCustomParser(BaseParser):
-            def parse(self, text: str, variable_style: str = "braces") -> Tuple[str, List[PromptSection], str]:
+            def parse(self, text: str, variable_style: str = "braces") -> Tuple[str, List[PromptSection], str, Dict[str, Any]]:
                 sections = []
                 for line in text.strip().split("\n"):
                     if "=" in line:
                         name, content = line.split("=", 1)
                         sections.append(PromptSection(name=name.strip(), content=content.strip()))
-                return "Mock Preamble", sections, "Mock Epilogue"
+                return "Mock Preamble", sections, "Mock Epilogue", {"source": "injected"}
 
         # Instantiate mock parser
         parser_instance = MockCustomParser()
@@ -285,6 +285,7 @@ sections:
         assert composer.list_sections() == ["role", "rules"]
         assert composer.get_section("role").content == "System Admin"
         assert "Mock Preamble" in composer.render()
+        assert composer.metadata == {"source": "injected"}
 
         # Test from_file with injected parser
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -293,6 +294,102 @@ sections:
             composer_file = PromptComposer.from_file("test.custom", pathlib.Path(tmpdir), parser=parser_instance)
             assert composer_file.list_sections() == ["role", "rules"]
             assert composer_file.get_section("role").content == "Custom Admin"
+            assert composer_file.metadata == {"source": "injected"}
+
+    def test_legacy_parser_backward_compatibility(self):
+        from typing import Tuple, List
+        class MockLegacyParser:
+            def parse(self, text: str, variable_style: str = "braces") -> Tuple[str, List[PromptSection], str]:
+                sections = [PromptSection(name="test", content="Legacy Content")]
+                return "Legacy Preamble", sections, "Legacy Epilogue"
+
+        composer = PromptComposer.from_text("some text", parser=MockLegacyParser())
+        assert composer.list_sections() == ["test"]
+        assert composer.get_section("test").content == "Legacy Content"
+        assert composer.metadata == {}
+
+    def test_prompt_metadata_parsing(self):
+        # 1. YAML Parser with Frontmatter
+        yaml_text_frontmatter = """---
+name: Translator Prompt
+version: 1.2.3
+description: Translates user text
+---
+preamble: "Translate"
+sections:
+  - name: role
+    content: "translator"
+"""
+        composer_yaml1 = PromptComposer.from_text(yaml_text_frontmatter, template_format="yaml")
+        assert composer_yaml1.metadata == {
+            "name": "Translator Prompt",
+            "version": "1.2.3",
+            "description": "Translates user text"
+        }
+        assert composer_yaml1.list_sections() == ["role"]
+
+        # 2. YAML Parser with top-level metadata key
+        yaml_text_key = """
+metadata:
+  name: Key Prompt
+  version: 2.0.0
+preamble: "Translate"
+sections:
+  - name: role
+    content: "translator"
+"""
+        composer_yaml2 = PromptComposer.from_text(yaml_text_key, template_format="yaml")
+        assert composer_yaml2.metadata == {
+            "name": "Key Prompt",
+            "version": "2.0.0"
+        }
+
+        # 3. JSON Parser with top-level metadata key
+        json_text = """{
+            "metadata": {
+                "name": "JSON Prompt",
+                "version": "1.0"
+            },
+            "preamble": "Preamble",
+            "sections": [
+                {"name": "role", "content": "system"}
+            ]
+        }"""
+        composer_json = PromptComposer.from_text(json_text, template_format="json")
+        assert composer_json.metadata == {
+            "name": "JSON Prompt",
+            "version": "1.0"
+        }
+
+        # 4. Markdown Parser with Frontmatter
+        md_text = """---
+title: Markdown Prompt
+author: AI
+---
+# role
+You are a markdown parser
+"""
+        composer_md = PromptComposer.from_text(md_text, template_format="markdown")
+        assert composer_md.metadata == {
+            "title": "Markdown Prompt",
+            "author": "AI"
+        }
+        assert composer_md.list_sections() == ["role"]
+
+        # 5. XML Parser with `<metadata>`
+        xml_text = """<metadata>
+            <title>XML Prompt</title>
+            <version>4.2</version>
+        </metadata>
+        <role>
+            You are XML
+        </role>"""
+        composer_xml = PromptComposer.from_text(xml_text, template_format="xml")
+        assert composer_xml.metadata == {
+            "title": "XML Prompt",
+            "version": "4.2"
+        }
+        assert composer_xml.list_sections() == ["role"]
 
     def test_advanced_boolean_conditions(self):
         # NOT condition

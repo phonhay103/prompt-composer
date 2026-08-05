@@ -1,6 +1,6 @@
 """Markdown template parser implementation."""
 
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Dict, Any
 from prompt_composer.parsers.base import BaseParser
 from prompt_composer.section import PromptSection
 
@@ -10,8 +10,35 @@ class MarkdownParser(BaseParser):
 
     def parse(
         self, text: str, variable_style: str = "braces"
-    ) -> Tuple[str, List[PromptSection], str]:
+    ) -> Tuple[str, List[PromptSection], str, Dict[str, Any]]:
+        import yaml
+
         lines = text.splitlines()
+        metadata: Dict[str, Any] = {}
+
+        if lines and lines[0].strip() == "---":
+            frontmatter_lines = []
+            remaining_lines = []
+            in_frontmatter = True
+            for line in lines[1:]:
+                if in_frontmatter:
+                    if line.strip() == "---":
+                        in_frontmatter = False
+                    else:
+                        frontmatter_lines.append(line)
+                else:
+                    remaining_lines.append(line)
+            
+            if not in_frontmatter:
+                frontmatter_text = "\n".join(frontmatter_lines)
+                try:
+                    metadata = yaml.safe_load(frontmatter_text) or {}
+                    if not isinstance(metadata, dict):
+                        metadata = {}
+                except Exception:
+                    metadata = {}
+                lines = remaining_lines
+
         preamble_lines: List[str] = []
         sections: List[PromptSection] = []
 
@@ -60,4 +87,4 @@ class MarkdownParser(BaseParser):
             )
 
         preamble = "\n".join(preamble_lines).strip()
-        return preamble, sections, ""
+        return preamble, sections, "", metadata

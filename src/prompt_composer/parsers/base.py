@@ -1,6 +1,6 @@
 """Base template parser protocol/interface."""
 
-from typing import Tuple, List, Protocol, runtime_checkable
+from typing import Tuple, List, Protocol, runtime_checkable, Dict
 from prompt_composer.section import PromptSection
 
 
@@ -10,7 +10,7 @@ class BaseParser(Protocol):
 
     def parse(
         self, text: str, variable_style: str = "braces"
-    ) -> Tuple[str, List[PromptSection], str]:
+    ) -> Tuple[str, List[PromptSection], str, Dict[str, Any]]:
         """
         Parse raw template text into components.
 
