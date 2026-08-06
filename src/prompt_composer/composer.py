@@ -85,6 +85,8 @@ class PromptComposer:
                     fmt = TemplateFormat.XML
                 elif suffix == ".baml":
                     fmt = TemplateFormat.BAML
+                elif suffix == ".toml":
+                    fmt = TemplateFormat.TOML
                 else:
                     fmt = TemplateFormat(cls.detect_format(raw_text))
         else:
@@ -148,6 +150,10 @@ class PromptComposer:
         if re.search(r'\bfunction\s+\w+\s*\(', text) and re.search(r'\bprompt\s*#"', text):
             return "baml"
 
+        # Check for TOML tables
+        if "[[sections]]" in text or "[metadata]" in text:
+            return "toml"
+
         # Check for Markdown headings (allowing leading indentation)
         for line in text.splitlines():
             stripped = line.strip()
@@ -165,6 +171,7 @@ class PromptComposer:
         from prompt_composer.parsers.xml import XmlParser
         from prompt_composer.parsers.markdown import MarkdownParser
         from prompt_composer.parsers.baml import BamlParser
+        from prompt_composer.parsers.toml import TomlParser
 
         parsers = {
             TemplateFormat.JSON: JsonParser(),
@@ -172,6 +179,7 @@ class PromptComposer:
             TemplateFormat.XML: XmlParser(),
             TemplateFormat.MARKDOWN: MarkdownParser(),
             TemplateFormat.BAML: BamlParser(),
+            TemplateFormat.TOML: TomlParser(),
         }
         if fmt not in parsers:
             raise ValueError(f"Unknown template format: {fmt}")

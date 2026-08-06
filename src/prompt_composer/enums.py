@@ -16,6 +16,7 @@ class TemplateFormat(StrEnum):
     XML = "xml"
     MARKDOWN = "markdown"
     BAML = "baml"
+    TOML = "toml"
 
 
 
