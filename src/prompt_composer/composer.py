@@ -6,9 +6,9 @@ from typing import Any, Dict, List, Optional, Union, Callable
 from collections import OrderedDict
 
 from prompt_composer.section import PromptSection
-from prompt_composer.parsers.base import BaseParser
 from prompt_composer.filters import DEFAULT_FILTERS
 from prompt_composer.enums import TemplateFormat, VariableStyle, OutputFormat
+from prompt_composer.formats import FormatRegistry
 
 
 class PromptComposer:
@@ -57,7 +57,7 @@ class PromptComposer:
         prompts_dir: pathlib.Path,
         template_format: Union[str, TemplateFormat] = TemplateFormat.AUTO,
         variable_style: Union[str, VariableStyle] = VariableStyle.BRACES,
-        parser: Optional[BaseParser] = None,
+        parser: Optional[Any] = None,
     ) -> "PromptComposer":
         """
         Load a template file and parse it into sections.
@@ -87,6 +87,8 @@ class PromptComposer:
                     fmt = TemplateFormat.BAML
                 elif suffix == ".toml":
                     fmt = TemplateFormat.TOML
+                elif suffix == ".toon":
+                    fmt = TemplateFormat.TOON
                 else:
                     fmt = TemplateFormat(cls.detect_format(raw_text))
         else:
@@ -105,7 +107,7 @@ class PromptComposer:
         raw_text: str,
         template_format: Union[str, TemplateFormat] = TemplateFormat.AUTO,
         variable_style: Union[str, VariableStyle] = VariableStyle.BRACES,
-        parser: Optional[BaseParser] = None,
+        parser: Optional[Any] = None,
     ) -> "PromptComposer":
         """Parse raw prompt text into sections."""
         if parser is None:
@@ -154,6 +156,10 @@ class PromptComposer:
         if "[[sections]]" in text or "[metadata]" in text:
             return "toml"
 
+        # Check for TOON format patterns
+        if "]{" in text or re.search(r'\w+\[\d+[^\]]*\]:', text):
+            return "toon"
+
         # Check for Markdown headings (allowing leading indentation)
         for line in text.splitlines():
             stripped = line.strip()
@@ -164,26 +170,9 @@ class PromptComposer:
         return "xml"
 
     @staticmethod
-    def get_parser(fmt: TemplateFormat) -> BaseParser:
+    def get_parser(fmt: TemplateFormat) -> Any:
         """Get the parser instance corresponding to the given format name."""
-        from prompt_composer.parsers.json import JsonParser
-        from prompt_composer.parsers.yaml import YamlParser
-        from prompt_composer.parsers.xml import XmlParser
-        from prompt_composer.parsers.markdown import MarkdownParser
-        from prompt_composer.parsers.baml import BamlParser
-        from prompt_composer.parsers.toml import TomlParser
-
-        parsers = {
-            TemplateFormat.JSON: JsonParser(),
-            TemplateFormat.YAML: YamlParser(),
-            TemplateFormat.XML: XmlParser(),
-            TemplateFormat.MARKDOWN: MarkdownParser(),
-            TemplateFormat.BAML: BamlParser(),
-            TemplateFormat.TOML: TomlParser(),
-        }
-        if fmt not in parsers:
-            raise ValueError(f"Unknown template format: {fmt}")
-        return parsers[fmt]
+        return FormatRegistry.get(fmt.value)
 
     # --- Section Management ---
 
@@ -373,4 +362,26 @@ class PromptComposer:
             f"PromptComposer(sections={sections}, "
             f"unresolved_variables={unresolved}, variable_style='{self._variable_style.value}', "
             f"metadata={self._metadata})"
+        )
+
+    def serialize(self, fmt: Union[str, TemplateFormat], **kwargs) -> str:
+        """Serialize the prompt composer state back into the specified format."""
+        try:
+            fmt_val = TemplateFormat(fmt)
+        except ValueError:
+            raise ValueError(f"Unknown format: {fmt}")
+            
+        handler_key = fmt_val.value
+        if handler_key in ("json-compact", "json-pretty"):
+            handler = FormatRegistry.get("json")
+            kwargs["format"] = handler_key
+        else:
+            handler = FormatRegistry.get(handler_key)
+            
+        return handler.serialize(
+            preamble=self._preamble,
+            sections=list(self._sections.values()),
+            epilogue=self._epilogue,
+            metadata=self._metadata,
+            **kwargs
         )

@@ -12,11 +12,14 @@ class TemplateFormat(StrEnum):
     """Supported template file/string formats."""
     AUTO = "auto"
     JSON = "json"
+    JSON_COMPACT = "json-compact"
+    JSON_PRETTY = "json-pretty"
     YAML = "yaml"
     XML = "xml"
     MARKDOWN = "markdown"
     BAML = "baml"
     TOML = "toml"
+    TOON = "toon"
 
 
 
