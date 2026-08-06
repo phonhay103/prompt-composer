@@ -83,6 +83,8 @@ class PromptComposer:
                     fmt = TemplateFormat.MARKDOWN
                 elif suffix == ".xml":
                     fmt = TemplateFormat.XML
+                elif suffix == ".baml":
+                    fmt = TemplateFormat.BAML
                 else:
                     fmt = TemplateFormat(cls.detect_format(raw_text))
         else:
@@ -141,10 +143,18 @@ class PromptComposer:
         if "sections:" in text or "preamble:" in text or "epilogue:" in text:
             return "yaml"
         
-        # Check for Markdown headings using optimized substring searches
-        for prefix in ("# ", "## ", "### ", "#### ", "##### ", "###### "):
-            if text.startswith(prefix) or f"\n{prefix}" in text:
-                return "markdown"
+        # Check for BAML function and prompt pattern
+        import re
+        if re.search(r'\bfunction\s+\w+\s*\(', text) and re.search(r'\bprompt\s*#"', text):
+            return "baml"
+
+        # Check for Markdown headings (allowing leading indentation)
+        for line in text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                parts = stripped.split(maxsplit=1)
+                if parts and all(c == "#" for c in parts[0]):
+                    return "markdown"
         return "xml"
 
     @staticmethod
@@ -154,12 +164,14 @@ class PromptComposer:
         from prompt_composer.parsers.yaml import YamlParser
         from prompt_composer.parsers.xml import XmlParser
         from prompt_composer.parsers.markdown import MarkdownParser
+        from prompt_composer.parsers.baml import BamlParser
 
         parsers = {
             TemplateFormat.JSON: JsonParser(),
             TemplateFormat.YAML: YamlParser(),
             TemplateFormat.XML: XmlParser(),
             TemplateFormat.MARKDOWN: MarkdownParser(),
+            TemplateFormat.BAML: BamlParser(),
         }
         if fmt not in parsers:
             raise ValueError(f"Unknown template format: {fmt}")

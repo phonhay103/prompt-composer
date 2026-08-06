@@ -15,6 +15,8 @@ class TemplateFormat(StrEnum):
     YAML = "yaml"
     XML = "xml"
     MARKDOWN = "markdown"
+    BAML = "baml"
+
 
 
 class VariableStyle(StrEnum):
