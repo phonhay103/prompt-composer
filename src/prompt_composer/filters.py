@@ -1,9 +1,10 @@
 """Centralized filters for PromptComposer slot variables."""
 
 import json
-from typing import Any, Dict, Callable
+from collections.abc import Callable
+from typing import Any
 
-DEFAULT_FILTERS: Dict[str, Callable[[Any], str]] = {
+DEFAULT_FILTERS: dict[str, Callable[[Any], str]] = {
     "json": lambda v: json.dumps(v, indent=2) if not isinstance(v, str) else v,
     "upper": lambda v: str(v).upper(),
     "lower": lambda v: str(v).lower(),

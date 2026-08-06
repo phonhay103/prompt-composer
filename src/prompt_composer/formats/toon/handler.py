@@ -1,7 +1,8 @@
 """TOON template format handler implementation."""
 
 import re
-from typing import Tuple, List, Dict, Any
+from typing import Any
+
 from prompt_composer.formats.base import FormatHandler
 from prompt_composer.section import PromptSection
 
@@ -11,7 +12,7 @@ class ToonHandler(FormatHandler):
 
     def parse(
         self, text: str, variable_style: str = "braces"
-    ) -> Tuple[str, List[PromptSection], str, Dict[str, Any]]:
+    ) -> tuple[str, list[PromptSection], str, dict[str, Any]]:
         data = self._decode_toon(text)
         metadata = data.pop("metadata", {})
         if not isinstance(metadata, dict):
@@ -19,7 +20,7 @@ class ToonHandler(FormatHandler):
 
         preamble = data.get("preamble", "")
         epilogue = data.get("epilogue", "")
-        sections: List[PromptSection] = []
+        sections: list[PromptSection] = []
 
         for item in data.get("sections", []):
             name = item["name"]
@@ -37,9 +38,9 @@ class ToonHandler(FormatHandler):
     def serialize(
         self,
         preamble: str,
-        sections: List[PromptSection],
+        sections: list[PromptSection],
         epilogue: str,
-        metadata: Dict[str, Any],
+        metadata: dict[str, Any],
         **kwargs
     ) -> str:
         lines = []
@@ -47,12 +48,12 @@ class ToonHandler(FormatHandler):
             lines.append(f'preamble: {self._escape_toon_str(preamble)}')
         if epilogue:
             lines.append(f'epilogue: {self._escape_toon_str(epilogue)}')
-        
+
         if metadata:
             lines.append('metadata:')
             for k, v in metadata.items():
                 lines.append(f'  {k}: {self._escape_toon_str(str(v))}')
-                
+
         if sections:
             lines.append(f'sections[{len(sections)}]{{name,content,tag_wrap}}:')
             for sec in sections:
@@ -60,10 +61,10 @@ class ToonHandler(FormatHandler):
                 content_val = self._escape_toon_str(sec.content)
                 tag_wrap_val = str(sec.tag_wrap).lower()
                 lines.append(f'  {name_val},{content_val},{tag_wrap_val}')
-                
+
         return "\n".join(lines)
 
-    def _decode_toon(self, text: str) -> Dict[str, Any]:
+    def _decode_toon(self, text: str) -> dict[str, Any]:
         lines = []
         for line in text.splitlines():
             stripped = line.strip()
@@ -80,8 +81,8 @@ class ToonHandler(FormatHandler):
         return data
 
     def _parse_object(
-        self, lines: List[Tuple[int, str]], start_idx: int, base_indent: int
-    ) -> Tuple[Dict[str, Any], int]:
+        self, lines: list[tuple[int, str]], start_idx: int, base_indent: int
+    ) -> tuple[dict[str, Any], int]:
         result = {}
         i = start_idx
         n = len(lines)
@@ -124,7 +125,7 @@ class ToonHandler(FormatHandler):
                     key = inline_match.group(1)
                     delim_char = inline_match.group(3).strip() or ","
                     vals_str = inline_match.group(4).strip()
-                    
+
                     if vals_str:
                         cells = self._split_delimited(vals_str, delim_char)
                         result[key] = [self._parse_value(c) for c in cells]
@@ -169,8 +170,8 @@ class ToonHandler(FormatHandler):
         return result, i
 
     def _parse_list(
-        self, lines: List[Tuple[int, str]], start_idx: int, base_indent: int
-    ) -> Tuple[List[Any], int]:
+        self, lines: list[tuple[int, str]], start_idx: int, base_indent: int
+    ) -> tuple[list[Any], int]:
         result = []
         i = start_idx
         n = len(lines)
@@ -211,7 +212,7 @@ class ToonHandler(FormatHandler):
             i += 1
         return -1
 
-    def _split_delimited(self, text: str, delim: str) -> List[str]:
+    def _split_delimited(self, text: str, delim: str) -> list[str]:
         result = []
         current = []
         in_quotes = False
@@ -265,7 +266,7 @@ class ToonHandler(FormatHandler):
         if not isinstance(val, str):
             return str(val)
         needs_quotes = (
-            not val or 
+            not val or
             any(c in val for c in (' ', '\n', '\r', '\t', ',', ':', '{', '}', '[', ']')) or
             val.startswith('#') or
             val in ('true', 'false', 'null')

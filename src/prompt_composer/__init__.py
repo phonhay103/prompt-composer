@@ -16,13 +16,13 @@ Usage:
 """
 
 from prompt_composer.composer import PromptComposer
+from prompt_composer.enums import OutputFormat, TemplateFormat, VariableStyle
 from prompt_composer.section import PromptSection
-from prompt_composer.enums import TemplateFormat, VariableStyle, OutputFormat
 
 __all__ = [
+    "OutputFormat",
     "PromptComposer",
     "PromptSection",
     "TemplateFormat",
     "VariableStyle",
-    "OutputFormat",
 ]

@@ -2,6 +2,7 @@
 
 import pathlib
 import tempfile
+
 from prompt_composer import PromptComposer, TemplateFormat
 
 
@@ -19,12 +20,12 @@ def test_toon_parsing():
       context,{text},false
     """
     composer = PromptComposer.from_text(template, template_format=TemplateFormat.TOON)
-    
+
     assert composer.metadata == {"name": "TOON Prompt", "version": "1.0"}
     assert composer.list_sections() == ["role", "context"]
     assert composer._preamble == "Hello TOON"
     assert composer._epilogue == "Bye TOON"
-    
+
     composer.set_variable("text", "world")
     rendered = composer.render()
     assert "Hello TOON" in rendered

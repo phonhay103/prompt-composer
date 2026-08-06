@@ -2,6 +2,7 @@
 
 import pathlib
 import tempfile
+
 from prompt_composer import PromptComposer, TemplateFormat
 
 
@@ -25,18 +26,18 @@ def test_baml_comment_stripping():
     }
     """
     composer = PromptComposer.from_text(template, template_format=TemplateFormat.BAML)
-    
+
     # Check classes and enums extracted
     assert "User" in composer.metadata["classes"]
     # Check comments inside class body are stripped (though we don't strictly parse class body yet, we check clean_text was used)
     assert "// user identifier" not in composer.metadata["classes"]["User"]
-    
+
     # Check function metadata
     assert composer.metadata["function_name"] == "GetUser"
     assert composer.metadata["client"] == "openai/gpt-4o"
     assert composer.metadata["return_type"] == "User"
     assert composer.metadata["arguments"] == {"id": "int"}
-    
+
     # Check sections (single function, plain text fallback)
     assert len(composer.list_sections()) == 1
     assert "GetUser" in composer.list_sections()

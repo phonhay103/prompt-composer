@@ -2,6 +2,7 @@
 
 import pathlib
 import tempfile
+
 from prompt_composer import PromptComposer, TemplateFormat
 
 
@@ -25,12 +26,12 @@ def test_toml_parsing():
     tag_wrap = false
     """
     composer = PromptComposer.from_text(template, template_format=TemplateFormat.TOML)
-    
+
     assert composer.metadata == {"name": "TOML Prompt", "version": "1.0"}
     assert composer.list_sections() == ["role", "context"]
     assert composer._preamble == "Hello TOML"
     assert composer._epilogue == "Bye TOML"
-    
+
     composer.set_variable("text", "world")
     rendered = composer.render()
     assert "Hello TOML" in rendered

@@ -1,20 +1,21 @@
 """Format registry initialization and DI registration."""
 
 from typing import Dict
+
+from prompt_composer.formats.baml.handler import BamlHandler
 from prompt_composer.formats.base import FormatHandler
 from prompt_composer.formats.json.handler import JsonHandler
-from prompt_composer.formats.yaml.handler import YamlHandler
-from prompt_composer.formats.xml.handler import XmlHandler
 from prompt_composer.formats.markdown.handler import MarkdownHandler
-from prompt_composer.formats.baml.handler import BamlHandler
 from prompt_composer.formats.toml.handler import TomlHandler
 from prompt_composer.formats.toon.handler import ToonHandler
+from prompt_composer.formats.xml.handler import XmlHandler
+from prompt_composer.formats.yaml.handler import YamlHandler
 
 
 class FormatRegistry:
     """Dependency Injection registry for prompt template format handlers."""
 
-    _handlers: Dict[str, FormatHandler] = {}
+    _handlers: dict[str, FormatHandler] = {}
 
     @classmethod
     def register(cls, fmt: str, handler: FormatHandler) -> None:

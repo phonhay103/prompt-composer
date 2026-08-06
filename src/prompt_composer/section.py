@@ -1,9 +1,10 @@
 """PromptSection — A named block of text within a composed prompt."""
 
-from typing import Any, Dict, List, Optional, Union, Callable
+from collections.abc import Callable
+from typing import Any
 
-from prompt_composer.filters import DEFAULT_FILTERS
 from prompt_composer.enums import VariableStyle
+from prompt_composer.filters import DEFAULT_FILTERS
 
 
 class PromptSection:
@@ -23,17 +24,17 @@ class PromptSection:
     def __init__(
         self,
         name: str,
-        content: Union[str, Callable[[Dict[str, Any]], str]],
-        tag_wrap: Union[bool, str] = True,
-        condition: Optional[Union[str, Callable[[Dict[str, Any]], bool]]] = None,
+        content: str | Callable[[dict[str, Any]], str],
+        tag_wrap: bool | str = True,
+        condition: str | Callable[[dict[str, Any]], bool] | None = None,
     ):
         self.name = name
         self.content = content
         self.tag_wrap = tag_wrap
         self.condition = condition
-        self._cached_variables: Dict[str, List[str]] = {}
+        self._cached_variables: dict[str, list[str]] = {}
 
-    def should_render(self, variables: Dict[str, Any]) -> bool:
+    def should_render(self, variables: dict[str, Any]) -> bool:
         """Evaluate the render condition against the current variables."""
         if self.condition is None:
             return True
@@ -47,7 +48,7 @@ class PromptSection:
             return bool(variables.get(cond_str))
         return True
 
-    def _evaluate_boolean_expression(self, expr: str, variables: Dict[str, Any]) -> bool:
+    def _evaluate_boolean_expression(self, expr: str, variables: dict[str, Any]) -> bool:
         """
         Safely evaluate a boolean expression with AND, OR, NOT operators.
         Avoids eval() by using a simple recursive descent parser.
@@ -129,7 +130,7 @@ class PromptSection:
             return bool(variables.get(expr))
 
 
-    def get_variables(self, variable_style: Union[str, VariableStyle] = VariableStyle.BRACES) -> List[str]:
+    def get_variables(self, variable_style: str | VariableStyle = VariableStyle.BRACES) -> list[str]:
         """Extract all variable names from this section's content."""
         if callable(self.content):
             return []
@@ -139,7 +140,7 @@ class PromptSection:
             return self._cached_variables[style_str]
 
         text = self.content
-        keys: List[str] = []
+        keys: list[str] = []
         i = 0
         n = len(text)
 
@@ -182,16 +183,17 @@ class PromptSection:
         return keys
 
     # Backward compatibility alias
-    def get_slots(self, slot_style: str = "braces") -> List[str]:
+    def get_slots(self, slot_style: str = "braces") -> list[str]:
         """Extract all slot names (deprecated, use get_variables)."""
         return self.get_variables(variable_style=slot_style)
 
     def render(
         self,
-        variables: Optional[Dict[str, Any]] = None,
-        variable_style: Union[str, VariableStyle] = VariableStyle.BRACES,
-        filters: Optional[Dict[str, Callable[[Any], str]]] = None,
-        output_format: Optional[Any] = None,
+        variables: dict[str, Any] | None = None,
+        variable_style: str | VariableStyle = VariableStyle.BRACES,
+        filters: dict[str, Callable[[Any], str]] | None = None,
+        output_format: Any | None = None,
+        renderer: Any | None = None,
     ) -> str:
         """
         Render this section, optionally filling variables and applying filters.
@@ -202,6 +204,7 @@ class PromptSection:
             variable_style: Variable placeholder format ('braces' or 'double_braces')
             filters: Dictionary of formatting filters
             output_format: Optional forced output format ('xml' or 'markdown'/'md')
+            renderer: Optional template renderer engine
 
         Returns:
             Rendered section text, optionally wrapped in tags.
@@ -214,7 +217,10 @@ class PromptSection:
         rendered = content_str
         if variables:
             active_filters = filters if filters is not None else DEFAULT_FILTERS
-            rendered = self._replace_variables(content_str, variables, variable_style, active_filters)
+            if renderer is not None:
+                rendered = renderer.render(content_str, variables, active_filters)
+            else:
+                rendered = self._replace_variables(content_str, variables, variable_style, active_filters)
 
         if self.tag_wrap is False:
             return rendered
@@ -236,9 +242,9 @@ class PromptSection:
     def _replace_variables(
         self,
         text: str,
-        variables: Dict[str, Any],
-        variable_style: Union[str, VariableStyle],
-        filters: Dict[str, Callable[[Any], str]],
+        variables: dict[str, Any],
+        variable_style: str | VariableStyle,
+        filters: dict[str, Callable[[Any], str]],
     ) -> str:
         """Perform regex-free variable replacement according to style."""
         result = []
@@ -320,7 +326,7 @@ class PromptSection:
     def __repr__(self) -> str:
         if callable(self.content):
             content_desc = "<callable>"
-            vars_list: List[str] = []
+            vars_list: list[str] = []
         else:
             content_desc = f"'{self.content[:20]}...'"
             vars_list = self.get_variables()

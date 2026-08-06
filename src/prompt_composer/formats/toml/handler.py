@@ -1,7 +1,9 @@
 """TOML template format handler implementation."""
 
+from typing import Any
+
 import tomllib
-from typing import Tuple, List, Dict, Any
+
 from prompt_composer.formats.base import FormatHandler
 from prompt_composer.section import PromptSection
 
@@ -11,7 +13,7 @@ class TomlHandler(FormatHandler):
 
     def parse(
         self, text: str, variable_style: str = "braces"
-    ) -> Tuple[str, List[PromptSection], str, Dict[str, Any]]:
+    ) -> tuple[str, list[PromptSection], str, dict[str, Any]]:
         data = tomllib.loads(text)
         metadata = data.pop("metadata", {})
         if not isinstance(metadata, dict):
@@ -19,7 +21,7 @@ class TomlHandler(FormatHandler):
 
         preamble = data.get("preamble", "")
         epilogue = data.get("epilogue", "")
-        sections: List[PromptSection] = []
+        sections: list[PromptSection] = []
 
         for item in data.get("sections", []):
             name = item["name"]
@@ -37,9 +39,9 @@ class TomlHandler(FormatHandler):
     def serialize(
         self,
         preamble: str,
-        sections: List[PromptSection],
+        sections: list[PromptSection],
         epilogue: str,
-        metadata: Dict[str, Any],
+        metadata: dict[str, Any],
         **kwargs
     ) -> str:
         lines = []
@@ -47,7 +49,7 @@ class TomlHandler(FormatHandler):
             lines.append(f'preamble = "{self._escape_toml_str(preamble)}"')
         if epilogue:
             lines.append(f'epilogue = "{self._escape_toml_str(epilogue)}"')
-        
+
         if metadata:
             lines.append("")
             lines.append("[metadata]")
@@ -61,7 +63,7 @@ class TomlHandler(FormatHandler):
                 else:
                     import json
                     lines.append(f'{k} = "{self._escape_toml_str(json.dumps(v))}"')
-                    
+
         if sections:
             for sec in sections:
                 lines.append("")
@@ -71,7 +73,7 @@ class TomlHandler(FormatHandler):
                 lines.append(f'tag_wrap = {str(sec.tag_wrap).lower()}')
                 if sec.condition is not None:
                     lines.append(f'condition = "{self._escape_toml_str(sec.condition)}"')
-                    
+
         return "\n".join(lines)
 
     def _escape_toml_str(self, s: str) -> str:

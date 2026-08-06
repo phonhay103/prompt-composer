@@ -1,7 +1,8 @@
 """JSON template format handler implementation."""
 
 import json
-from typing import Tuple, List, Dict, Any
+from typing import Any
+
 from prompt_composer.formats.base import FormatHandler
 from prompt_composer.section import PromptSection
 
@@ -11,7 +12,7 @@ class JsonHandler(FormatHandler):
 
     def parse(
         self, text: str, variable_style: str = "braces"
-    ) -> Tuple[str, List[PromptSection], str, Dict[str, Any]]:
+    ) -> tuple[str, list[PromptSection], str, dict[str, Any]]:
         data = json.loads(text)
         metadata = data.pop("metadata", {})
         if not isinstance(metadata, dict):
@@ -19,7 +20,7 @@ class JsonHandler(FormatHandler):
 
         preamble = data.get("preamble", "")
         epilogue = data.get("epilogue", "")
-        sections: List[PromptSection] = []
+        sections: list[PromptSection] = []
 
         for item in data.get("sections", []):
             name = item["name"]
@@ -37,9 +38,9 @@ class JsonHandler(FormatHandler):
     def serialize(
         self,
         preamble: str,
-        sections: List[PromptSection],
+        sections: list[PromptSection],
         epilogue: str,
-        metadata: Dict[str, Any],
+        metadata: dict[str, Any],
         **kwargs
     ) -> str:
         sec_list = []

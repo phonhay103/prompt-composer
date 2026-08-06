@@ -1,7 +1,8 @@
 """BAML template format handler implementation."""
 
 import re
-from typing import Tuple, List, Dict, Any, Optional
+from typing import Any
+
 from prompt_composer.formats.base import FormatHandler
 from prompt_composer.section import PromptSection
 
@@ -11,11 +12,11 @@ class BamlHandler(FormatHandler):
 
     def parse(
         self, text: str, variable_style: str = "braces"
-    ) -> Tuple[str, List[PromptSection], str, Dict[str, Any]]:
+    ) -> tuple[str, list[PromptSection], str, dict[str, Any]]:
         cleaned_text = self._strip_comments(text)
         blocks = self._parse_blocks(cleaned_text)
 
-        metadata: Dict[str, Any] = {
+        metadata: dict[str, Any] = {
             "classes": {},
             "enums": {},
             "functions": {}
@@ -53,7 +54,7 @@ class BamlHandler(FormatHandler):
 
         preamble = ""
         epilogue = ""
-        sections: List[PromptSection] = []
+        sections: list[PromptSection] = []
 
         if len(functions_data) == 1:
             # Single function case
@@ -64,11 +65,11 @@ class BamlHandler(FormatHandler):
             metadata["arguments"] = func["arguments"]
 
             prompt_content = func["prompt"]
-            
+
             # Detect nested format within the prompt content
             from prompt_composer.composer import PromptComposer
             detected_fmt = PromptComposer.detect_format(prompt_content)
-            
+
             if detected_fmt == "xml":
                 if "<" in prompt_content and ">" in prompt_content:
                     from prompt_composer.formats.xml.handler import XmlHandler
@@ -108,23 +109,23 @@ class BamlHandler(FormatHandler):
     def serialize(
         self,
         preamble: str,
-        sections: List[PromptSection],
+        sections: list[PromptSection],
         epilogue: str,
-        metadata: Dict[str, Any],
+        metadata: dict[str, Any],
         **kwargs
     ) -> str:
         parts = []
-        
+
         # Classes
         classes = metadata.get("classes", {})
         for name, body in classes.items():
             parts.append(f"class {name} {{\n{body}\n}}")
-            
+
         # Enums
         enums = metadata.get("enums", {})
         for name, body in enums.items():
             parts.append(f"enum {name} {{\n{body}\n}}")
-            
+
         # Reconstruct prompt content from sections
         prompt_parts = []
         if preamble:
@@ -146,21 +147,21 @@ class BamlHandler(FormatHandler):
                 prompt_parts.append(sec.content)
         if epilogue:
             prompt_parts.append(epilogue)
-            
+
         prompt_text = "\n\n".join(prompt_parts)
-        
+
         # Function definition
         func_name = metadata.get("function_name", "PromptFunction")
         client = metadata.get("client", "openai/gpt-4o")
-        
+
         args = metadata.get("arguments", {})
         args_str = ", ".join(f"{k}: {v}" for k, v in args.items())
-        
+
         ret_type = metadata.get("return_type", "string")
-        
+
         # Ident nested prompt text to match typical BAML formatting style
         indented_prompt = "\n".join("    " + line if line else "" for line in prompt_text.splitlines())
-        
+
         parts.append(
             f"function {func_name}({args_str}) -> {ret_type} {{\n"
             f"  client \"{client}\"\n"
@@ -169,7 +170,7 @@ class BamlHandler(FormatHandler):
             f"  \"#\n"
             f"}}"
         )
-        
+
         return "\n\n".join(parts)
 
     def _strip_comments(self, text: str) -> str:
@@ -224,7 +225,7 @@ class BamlHandler(FormatHandler):
                 i += 1
         return "".join(result)
 
-    def _parse_blocks(self, text: str) -> List[Tuple[str, str]]:
+    def _parse_blocks(self, text: str) -> list[tuple[str, str]]:
         i = 0
         n = len(text)
         blocks = []
@@ -287,21 +288,21 @@ class BamlHandler(FormatHandler):
                 i += 1
         return blocks
 
-    def _parse_function_header(self, header: str) -> Optional[Dict[str, Any]]:
+    def _parse_function_header(self, header: str) -> dict[str, Any] | None:
         header = header.strip()
         if not header.startswith("function"):
             return None
-        
+
         open_paren = header.find("(")
         if open_paren == -1:
             return None
         name = header[8:open_paren].strip()
-        
+
         close_paren = header.find(")", open_paren)
         if close_paren == -1:
             return None
         args_str = header[open_paren+1:close_paren].strip()
-        
+
         arguments = {}
         if args_str:
             for arg in args_str.split(","):
@@ -311,24 +312,24 @@ class BamlHandler(FormatHandler):
                     arguments[arg_name.strip()] = arg_type.strip()
                 else:
                     arguments[arg] = "unknown"
-                    
+
         arrow = header.find("->", close_paren)
         return_type = "unknown"
         if arrow != -1:
             return_type = header[arrow+2:].strip()
-            
+
         return {
             "name": name,
             "arguments": arguments,
             "return_type": return_type
         }
 
-    def _parse_function_body(self, body: str) -> Dict[str, Any]:
+    def _parse_function_body(self, body: str) -> dict[str, Any]:
         client = ""
         client_match = re.search(r'\bclient\s+("[^"]+"|\w+)', body)
         if client_match:
             client = client_match.group(1).strip('"')
-            
+
         prompt_content = ""
         prompt_match = re.search(r'prompt\s*#"', body)
         if prompt_match:
@@ -336,7 +337,7 @@ class BamlHandler(FormatHandler):
             prompt_end = body.find('"#', content_start)
             if prompt_end != -1:
                 prompt_content = body[content_start:prompt_end]
-                
+
         return {
             "client": client,
             "prompt": prompt_content

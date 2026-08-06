@@ -1,6 +1,7 @@
 """Base template format handler protocol."""
 
-from typing import Tuple, List, Dict, Any, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
+
 from prompt_composer.section import PromptSection
 
 
@@ -10,7 +11,7 @@ class FormatHandler(Protocol):
 
     def parse(
         self, text: str, variable_style: str = "braces"
-    ) -> Tuple[str, List[PromptSection], str, Dict[str, Any]]:
+    ) -> tuple[str, list[PromptSection], str, dict[str, Any]]:
         """
         Parse raw template text into components.
 
@@ -26,9 +27,9 @@ class FormatHandler(Protocol):
     def serialize(
         self,
         preamble: str,
-        sections: List[PromptSection],
+        sections: list[PromptSection],
         epilogue: str,
-        metadata: Dict[str, Any],
+        metadata: dict[str, Any],
         **kwargs
     ) -> str:
         """

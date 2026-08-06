@@ -1,10 +1,9 @@
 """Comprehensive tests for PromptComposer."""
+import json
 import pathlib
 import tempfile
-import json
 
 from prompt_composer import PromptComposer, PromptSection
-
 
 # --- PromptSection Tests ---
 
@@ -247,8 +246,8 @@ sections:
         assert "Be nice." in rendered_md  # tag_wrap=False remains unwrapped
 
     def test_enums(self):
-        from prompt_composer import TemplateFormat, VariableStyle, OutputFormat
-        
+        from prompt_composer import OutputFormat, TemplateFormat, VariableStyle
+
         composer = PromptComposer(variable_style=VariableStyle.DOUBLE_BRACES)
         composer.set_section("s", "Val: {{x}}")
         composer.set_variable("x", "100")
@@ -263,13 +262,14 @@ sections:
         assert composer2.list_sections() == ["s"]
 
     def test_parser_injection(self):
-        from prompt_composer.parsers.base import BaseParser
-        from typing import Tuple, List, Dict, Any
-        import tempfile
         import pathlib
+        import tempfile
+        from typing import Any
+
+        from prompt_composer.parsers.base import BaseParser
 
         class MockCustomParser(BaseParser):
-            def parse(self, text: str, variable_style: str = "braces") -> Tuple[str, List[PromptSection], str, Dict[str, Any]]:
+            def parse(self, text: str, variable_style: str = "braces") -> tuple[str, list[PromptSection], str, dict[str, Any]]:
                 sections = []
                 for line in text.strip().split("\n"):
                     if "=" in line:
@@ -297,9 +297,8 @@ sections:
             assert composer_file.metadata == {"source": "injected"}
 
     def test_legacy_parser_backward_compatibility(self):
-        from typing import Tuple, List
         class MockLegacyParser:
-            def parse(self, text: str, variable_style: str = "braces") -> Tuple[str, List[PromptSection], str]:
+            def parse(self, text: str, variable_style: str = "braces") -> tuple[str, list[PromptSection], str]:
                 sections = [PromptSection(name="test", content="Legacy Content")]
                 return "Legacy Preamble", sections, "Legacy Epilogue"
 
@@ -431,4 +430,39 @@ You are a markdown parser
         # JSON output will be parsed, dumped, upper-cased, then trimmed
         rendered = composer.render()
         assert "Val: [\n  \"A\",\n  \"B\"\n]" in rendered or "Val: [\n  \"A\",\n  \"B\"\n]" in rendered
+
+
+class TestJinjaRenderer:
+    def test_jinja_basic_render(self):
+        composer = PromptComposer(variable_style="jinja")
+        composer.set_section("role", "You are {{ name }}.", tag_wrap=False)
+        composer.set_variable("name", "Antigravity")
+        assert composer.render() == "You are Antigravity."
+
+    def test_jinja_control_flow(self):
+        composer = PromptComposer(renderer_name="jinja")
+        content = (
+            "Tools:\n"
+            "{%- for tool in tools %}\n"
+            "- {{ tool }}\n"
+            "{%- endfor %}"
+        )
+        composer.set_section("tools", content, tag_wrap=False)
+        composer.set_variable("tools", ["search", "view_file"])
+        assert composer.render() == "Tools:\n- search\n- view_file"
+
+    def test_jinja_custom_filters(self):
+        composer = PromptComposer(renderer_name="jinja")
+        composer.register_filter("custom_upper", lambda val: str(val).upper())
+        composer.set_section("info", "Hello {{ name | custom_upper }}", tag_wrap=False)
+        composer.set_variable("name", "world")
+        assert composer.render() == "Hello WORLD"
+
+    def test_jinja_renderer_by_name(self):
+        # Even with curly style variable_style, if we force jinja renderer, it uses Jinja
+        composer = PromptComposer(variable_style="braces", renderer_name="jinja")
+        composer.set_section("info", "{{ x }}", tag_wrap=False)
+        composer.set_variable("x", "test")
+        assert composer.render() == "test"
+
 

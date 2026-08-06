@@ -1,6 +1,7 @@
 """Markdown template format handler implementation."""
 
-from typing import Tuple, List, Dict, Any, Optional
+from typing import Any
+
 from prompt_composer.formats.base import FormatHandler
 from prompt_composer.section import PromptSection
 
@@ -10,11 +11,11 @@ class MarkdownHandler(FormatHandler):
 
     def parse(
         self, text: str, variable_style: str = "braces"
-    ) -> Tuple[str, List[PromptSection], str, Dict[str, Any]]:
+    ) -> tuple[str, list[PromptSection], str, dict[str, Any]]:
         import yaml
 
         lines = text.splitlines()
-        metadata: Dict[str, Any] = {}
+        metadata: dict[str, Any] = {}
 
         if lines and lines[0].strip() == "---":
             frontmatter_lines = []
@@ -39,12 +40,12 @@ class MarkdownHandler(FormatHandler):
                     metadata = {}
                 lines = remaining_lines
 
-        preamble_lines: List[str] = []
-        sections: List[PromptSection] = []
+        preamble_lines: list[str] = []
+        sections: list[PromptSection] = []
 
-        current_section_name: Optional[str] = None
-        current_tag_wrap: Optional[str] = None
-        current_content_lines: List[str] = []
+        current_section_name: str | None = None
+        current_tag_wrap: str | None = None
+        current_content_lines: list[str] = []
 
         for line in lines:
             stripped = line.strip()
@@ -91,9 +92,9 @@ class MarkdownHandler(FormatHandler):
     def serialize(
         self,
         preamble: str,
-        sections: List[PromptSection],
+        sections: list[PromptSection],
         epilogue: str,
-        metadata: Dict[str, Any],
+        metadata: dict[str, Any],
         **kwargs
     ) -> str:
         parts = []

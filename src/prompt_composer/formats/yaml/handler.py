@@ -1,7 +1,9 @@
 """YAML template format handler implementation."""
 
+from typing import Any
+
 import yaml
-from typing import Tuple, List, Dict, Any
+
 from prompt_composer.formats.base import FormatHandler
 from prompt_composer.section import PromptSection
 
@@ -11,12 +13,12 @@ class YamlHandler(FormatHandler):
 
     def parse(
         self, text: str, variable_style: str = "braces"
-    ) -> Tuple[str, List[PromptSection], str, Dict[str, Any]]:
+    ) -> tuple[str, list[PromptSection], str, dict[str, Any]]:
         docs = list(yaml.safe_load_all(text))
         docs = [doc for doc in docs if doc is not None]
 
-        metadata: Dict[str, Any] = {}
-        data: Dict[str, Any] = {}
+        metadata: dict[str, Any] = {}
+        data: dict[str, Any] = {}
 
         if len(docs) > 1:
             metadata = docs[0]
@@ -30,7 +32,7 @@ class YamlHandler(FormatHandler):
 
         preamble = data.get("preamble", "")
         epilogue = data.get("epilogue", "")
-        sections: List[PromptSection] = []
+        sections: list[PromptSection] = []
 
         for item in data.get("sections", []):
             name = item["name"]
@@ -48,9 +50,9 @@ class YamlHandler(FormatHandler):
     def serialize(
         self,
         preamble: str,
-        sections: List[PromptSection],
+        sections: list[PromptSection],
         epilogue: str,
-        metadata: Dict[str, Any],
+        metadata: dict[str, Any],
         **kwargs
     ) -> str:
         data = {}
