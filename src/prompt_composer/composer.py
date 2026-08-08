@@ -63,6 +63,33 @@ class PromptComposer:
     # --- Factory Methods ---
 
     @classmethod
+    def from_remote(
+        cls,
+        provider: Any,
+        name: str,
+        version: str | None = None,
+        variable_style: str | VariableStyle = VariableStyle.BRACES,
+        template_format: str | TemplateFormat = TemplateFormat.AUTO,
+        renderer_name: str | None = None,
+        **kwargs,
+    ) -> "PromptComposer":
+        """
+        Fetch a template from a remote registry provider and return an initialized PromptComposer.
+        """
+        from prompt_composer.remote.composer import RemotePromptFormatter
+
+        formatter = RemotePromptFormatter.from_remote(
+            provider=provider,
+            name=name,
+            version=version,
+            variable_style=variable_style,
+            template_format=template_format,
+            renderer_name=renderer_name,
+            **kwargs,
+        )
+        return formatter.composer
+
+    @classmethod
     def from_file(
         cls,
         filename: str,

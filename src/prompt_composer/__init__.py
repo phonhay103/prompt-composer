@@ -17,12 +17,16 @@ Usage:
 
 from prompt_composer.composer import PromptComposer
 from prompt_composer.enums import OutputFormat, TemplateFormat, VariableStyle
+from prompt_composer.remote import RemotePromptFormatter, RemoteProviderRegistry
 from prompt_composer.section import PromptSection
 
 __all__ = [
     "OutputFormat",
     "PromptComposer",
     "PromptSection",
+    "RemotePromptFormatter",
+    "RemoteProviderRegistry",
     "TemplateFormat",
     "VariableStyle",
 ]
+
