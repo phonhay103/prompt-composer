@@ -1,6 +1,6 @@
 """Markdown template format handler implementation."""
 
-from typing import Any
+from typing import Any, override
 
 from prompt_composer.formats.base import FormatHandler
 from prompt_composer.section import PromptSection
@@ -9,6 +9,7 @@ from prompt_composer.section import PromptSection
 class MarkdownHandler(FormatHandler):
     """Parses and serializes prompt templates in Markdown format using headings as section dividers."""
 
+    @override
     def parse(
         self, text: str, variable_style: str = "braces"
     ) -> tuple[str, list[PromptSection], str, dict[str, Any]]:
@@ -51,6 +52,7 @@ class MarkdownHandler(FormatHandler):
             stripped = line.strip()
             is_heading = False
 
+            heading_title = ""
             if stripped.startswith("#"):
                 parts = stripped.split(maxsplit=1)
                 if parts and all(c == "#" for c in parts[0]):
@@ -64,7 +66,7 @@ class MarkdownHandler(FormatHandler):
                         PromptSection(
                             name=current_section_name,
                             content=content,
-                            tag_wrap=current_tag_wrap,
+                            tag_wrap=current_tag_wrap if current_tag_wrap is not None else True,
                         )
                     )
                     current_content_lines = []
@@ -82,22 +84,23 @@ class MarkdownHandler(FormatHandler):
                 PromptSection(
                     name=current_section_name,
                     content=content,
-                    tag_wrap=current_tag_wrap,
+                    tag_wrap=current_tag_wrap if current_tag_wrap is not None else True,
                 )
             )
 
         preamble = "\n".join(preamble_lines).strip()
         return preamble, sections, "", metadata
 
+    @override
     def serialize(
         self,
         preamble: str,
         sections: list[PromptSection],
         epilogue: str,
         metadata: dict[str, Any],
-        **kwargs
+        **_kwargs
     ) -> str:
-        parts = []
+        parts: list[str] = []
         if metadata:
             import yaml
             parts.append("---")
@@ -108,13 +111,14 @@ class MarkdownHandler(FormatHandler):
             parts.append(preamble)
 
         for sec in sections:
+            content_str = sec.content if isinstance(sec.content, str) else "<callable>"
             if sec.tag_wrap:
                 header = f"## {sec.name}"
                 if isinstance(sec.tag_wrap, str) and sec.tag_wrap.startswith("#"):
                     header = sec.tag_wrap
-                parts.append(f"{header}\n{sec.content}")
+                parts.append(f"{header}\n{content_str}")
             else:
-                parts.append(sec.content)
+                parts.append(content_str)
 
         if epilogue:
             parts.append(epilogue)

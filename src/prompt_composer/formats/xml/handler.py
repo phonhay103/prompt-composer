@@ -1,6 +1,6 @@
 """XML template format handler implementation using regex-free scanner."""
 
-from typing import Any
+from typing import Any, override
 
 from prompt_composer.formats.base import FormatHandler
 from prompt_composer.section import PromptSection
@@ -9,6 +9,7 @@ from prompt_composer.section import PromptSection
 class XmlHandler(FormatHandler):
     """Parses and serializes prompt templates in XML format."""
 
+    @override
     def parse(
         self, text: str, variable_style: str = "braces"
     ) -> tuple[str, list[PromptSection], str, dict[str, Any]]:
@@ -88,6 +89,7 @@ class XmlHandler(FormatHandler):
 
         return preamble, sections, epilogue, metadata
 
+    @override
     def serialize(
         self,
         preamble: str,
@@ -96,7 +98,7 @@ class XmlHandler(FormatHandler):
         metadata: dict[str, Any],
         **kwargs
     ) -> str:
-        parts = []
+        parts: list[str] = []
         if metadata:
             parts.append("<metadata>")
             for k, v in metadata.items():
@@ -107,13 +109,14 @@ class XmlHandler(FormatHandler):
             parts.append(preamble)
 
         for sec in sections:
+            content_str = sec.content if isinstance(sec.content, str) else "<callable>"
             if sec.tag_wrap:
                 tag_name = sec.name
                 if isinstance(sec.tag_wrap, str) and sec.tag_wrap.startswith("<") and sec.tag_wrap.endswith(">"):
                     tag_name = sec.tag_wrap[1:-1]
-                parts.append(f"<{tag_name}>\n{sec.content}\n</{tag_name}>")
+                parts.append(f"<{tag_name}>\n{content_str}\n</{tag_name}>")
             else:
-                parts.append(sec.content)
+                parts.append(content_str)
 
         if epilogue:
             parts.append(epilogue)

@@ -1,7 +1,7 @@
 """PromptSection — A named block of text within a composed prompt."""
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, override
 
 from prompt_composer.enums import VariableStyle
 from prompt_composer.filters import DEFAULT_FILTERS
@@ -27,7 +27,7 @@ class PromptSection:
         content: str | Callable[[dict[str, Any]], str],
         tag_wrap: bool | str = True,
         condition: str | Callable[[dict[str, Any]], bool] | None = None,
-    ):
+    ) -> None:
         self.name = name
         self.content = content
         self.tag_wrap = tag_wrap
@@ -39,7 +39,9 @@ class PromptSection:
         if self.condition is None:
             return True
         if callable(self.condition):
-            return bool(self.condition(variables))
+            from typing import cast
+            cond_fn = cast(Callable[[dict[str, Any]], bool], self.condition)
+            return bool(cond_fn(variables))
         if isinstance(self.condition, str):
             cond_str = self.condition.strip()
             # If condition contains spaces or standard operators, parse it
@@ -76,12 +78,12 @@ class PromptSection:
         idx = 0
         num_tokens = len(tokens)
 
-        def peek():
+        def peek() -> str | None:
             if idx < num_tokens:
                 return tokens[idx]
             return None
 
-        def consume(expected=None):
+        def consume(expected: str | None = None) -> str:
             nonlocal idx
             if idx >= num_tokens:
                 raise ValueError("Unexpected end of expression")
@@ -93,10 +95,10 @@ class PromptSection:
 
         def parse_factor() -> bool:
             token = peek()
-            if token == 'NOT':
+            if token == 'NOT':  # noqa: S105
                 consume('NOT')
                 return not parse_factor()
-            elif token == '(':
+            elif token == '(':  # noqa: S105
                 consume('(')
                 val = parse_expr()
                 consume(')')
@@ -209,16 +211,18 @@ class PromptSection:
         Returns:
             Rendered section text, optionally wrapped in tags.
         """
+        content_str: str
         if callable(self.content):
-            content_str = self.content(variables or {})
+            from typing import cast
+            content_str = cast(Callable[[dict[str, Any]], str], self.content)(variables or {})
         else:
-            content_str = self.content
+            content_str = str(self.content)
 
-        rendered = content_str
+        rendered: str = content_str
         if variables:
             active_filters = filters if filters is not None else DEFAULT_FILTERS
             if renderer is not None:
-                rendered = renderer.render(content_str, variables, active_filters)
+                rendered = str(renderer.render(content_str, variables, active_filters))
             else:
                 rendered = self._replace_variables(content_str, variables, variable_style, active_filters)
 
@@ -323,6 +327,7 @@ class PromptSection:
 
         return "".join(result)
 
+    @override
     def __repr__(self) -> str:
         if callable(self.content):
             content_desc = "<callable>"

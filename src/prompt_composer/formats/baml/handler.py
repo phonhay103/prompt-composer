@@ -1,7 +1,7 @@
 """BAML template format handler implementation."""
 
 import re
-from typing import Any
+from typing import Any, override
 
 from prompt_composer.formats.base import FormatHandler
 from prompt_composer.section import PromptSection
@@ -10,6 +10,7 @@ from prompt_composer.section import PromptSection
 class BamlHandler(FormatHandler):
     """Parses and serializes prompt templates in BAML format."""
 
+    @override
     def parse(
         self, text: str, variable_style: str = "braces"
     ) -> tuple[str, list[PromptSection], str, dict[str, Any]]:
@@ -106,13 +107,14 @@ class BamlHandler(FormatHandler):
 
         return preamble, sections, epilogue, metadata
 
+    @override
     def serialize(
         self,
         preamble: str,
         sections: list[PromptSection],
         epilogue: str,
         metadata: dict[str, Any],
-        **kwargs
+        **_kwargs
     ) -> str:
         parts = []
 
@@ -127,24 +129,25 @@ class BamlHandler(FormatHandler):
             parts.append(f"enum {name} {{\n{body}\n}}")
 
         # Reconstruct prompt content from sections
-        prompt_parts = []
+        prompt_parts: list[str] = []
         if preamble:
             prompt_parts.append(preamble)
         for sec in sections:
+            content_str = sec.content if isinstance(sec.content, str) else "<callable>"
             if sec.tag_wrap:
                 tag_name = sec.name
                 if isinstance(sec.tag_wrap, str):
                     if sec.tag_wrap.startswith("<") and sec.tag_wrap.endswith(">"):
                         tag_name = sec.tag_wrap[1:-1]
-                        prompt_parts.append(f"<{tag_name}>\n{sec.content}\n</{tag_name}>")
+                        prompt_parts.append(f"<{tag_name}>\n{content_str}\n</{tag_name}>")
                     elif sec.tag_wrap.startswith("#"):
-                        prompt_parts.append(f"{sec.tag_wrap}\n{sec.content}")
+                        prompt_parts.append(f"{sec.tag_wrap}\n{content_str}")
                     else:
-                        prompt_parts.append(f"<{sec.name}>\n{sec.content}\n</{sec.name}>")
+                        prompt_parts.append(f"<{sec.name}>\n{content_str}\n</{sec.name}>")
                 else:
-                    prompt_parts.append(f"<{sec.name}>\n{sec.content}\n</{sec.name}>")
+                    prompt_parts.append(f"<{sec.name}>\n{content_str}\n</{sec.name}>")
             else:
-                prompt_parts.append(sec.content)
+                prompt_parts.append(content_str)
         if epilogue:
             prompt_parts.append(epilogue)
 

@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from typing import cast
+from typing import cast, override
 
 from prompt_composer.enums import VariableStyle
 from prompt_composer.renderers.base import TemplateRenderer
@@ -15,6 +15,7 @@ class SimpleTemplateRenderer(TemplateRenderer):
             v_style = cast(VariableStyle, VariableStyle.BRACES)
         self.variable_style = v_style
 
+    @override
     def render(
         self,
         text: str,

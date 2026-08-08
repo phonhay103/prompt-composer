@@ -1,6 +1,6 @@
 """Format registry initialization and DI registration."""
 
-from typing import Dict
+from typing import ClassVar
 
 from prompt_composer.formats.baml.handler import BamlHandler
 from prompt_composer.formats.base import FormatHandler
@@ -15,7 +15,7 @@ from prompt_composer.formats.yaml.handler import YamlHandler
 class FormatRegistry:
     """Dependency Injection registry for prompt template format handlers."""
 
-    _handlers: dict[str, FormatHandler] = {}
+    _handlers: ClassVar[dict[str, FormatHandler]] = {}
 
     @classmethod
     def register(cls, fmt: str, handler: FormatHandler) -> None:
@@ -27,7 +27,7 @@ class FormatRegistry:
         """Get a registered format handler."""
         handler = cls._handlers.get(fmt)
         if not handler:
-            raise ValueError(f"No handler registered for template format: {fmt}")
+            raise ValueError(f"No handler registered for template format: {fmt}") from None
         return handler
 
 

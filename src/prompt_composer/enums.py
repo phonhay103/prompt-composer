@@ -1,11 +1,6 @@
 """Enums for PromptComposer formats and styles."""
 
-try:
-    from enum import StrEnum
-except ImportError:
-    from enum import Enum
-    class StrEnum(str, Enum):
-        pass
+from enum import StrEnum
 
 
 class TemplateFormat(StrEnum):

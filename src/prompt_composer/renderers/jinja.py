@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from typing import override
 
 import jinja2
 
@@ -8,6 +9,7 @@ from prompt_composer.renderers.base import TemplateRenderer
 class JinjaTemplateRenderer(TemplateRenderer):
     """Template rendering engine using Jinja2."""
 
+    @override
     def render(
         self,
         text: str,

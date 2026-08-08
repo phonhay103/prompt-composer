@@ -1,6 +1,6 @@
 """YAML template format handler implementation."""
 
-from typing import Any
+from typing import Any, override
 
 import yaml
 
@@ -11,6 +11,7 @@ from prompt_composer.section import PromptSection
 class YamlHandler(FormatHandler):
     """Parses and serializes prompt templates in YAML format."""
 
+    @override
     def parse(
         self, text: str, variable_style: str = "braces"
     ) -> tuple[str, list[PromptSection], str, dict[str, Any]]:
@@ -47,6 +48,7 @@ class YamlHandler(FormatHandler):
 
         return preamble, sections, epilogue, metadata
 
+    @override
     def serialize(
         self,
         preamble: str,

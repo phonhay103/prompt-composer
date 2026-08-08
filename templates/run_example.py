@@ -8,7 +8,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).parent.parent / "src"))
 from prompt_composer import PromptComposer
 
 
-def main():
+def main() -> None:
     templates_dir = pathlib.Path(__file__).parent
     slots = {
         "name": "Gemini",

@@ -1,7 +1,7 @@
 """JSON template format handler implementation."""
 
 import json
-from typing import Any
+from typing import Any, override
 
 from prompt_composer.formats.base import FormatHandler
 from prompt_composer.section import PromptSection
@@ -10,6 +10,7 @@ from prompt_composer.section import PromptSection
 class JsonHandler(FormatHandler):
     """Parses and serializes prompt templates in JSON format."""
 
+    @override
     def parse(
         self, text: str, variable_style: str = "braces"
     ) -> tuple[str, list[PromptSection], str, dict[str, Any]]:
@@ -35,6 +36,7 @@ class JsonHandler(FormatHandler):
 
         return preamble, sections, epilogue, metadata
 
+    @override
     def serialize(
         self,
         preamble: str,

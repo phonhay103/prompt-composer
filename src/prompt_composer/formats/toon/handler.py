@@ -1,7 +1,7 @@
 """TOON template format handler implementation."""
 
 import re
-from typing import Any
+from typing import Any, override
 
 from prompt_composer.formats.base import FormatHandler
 from prompt_composer.section import PromptSection
@@ -10,6 +10,7 @@ from prompt_composer.section import PromptSection
 class ToonHandler(FormatHandler):
     """Parses and serializes prompt templates in TOON format."""
 
+    @override
     def parse(
         self, text: str, variable_style: str = "braces"
     ) -> tuple[str, list[PromptSection], str, dict[str, Any]]:
@@ -35,6 +36,7 @@ class ToonHandler(FormatHandler):
 
         return preamble, sections, epilogue, metadata
 
+    @override
     def serialize(
         self,
         preamble: str,
@@ -58,7 +60,8 @@ class ToonHandler(FormatHandler):
             lines.append(f'sections[{len(sections)}]{{name,content,tag_wrap}}:')
             for sec in sections:
                 name_val = self._escape_toon_str(sec.name)
-                content_val = self._escape_toon_str(sec.content)
+                content_str = sec.content if isinstance(sec.content, str) else "<callable>"
+                content_val = self._escape_toon_str(content_str)
                 tag_wrap_val = str(sec.tag_wrap).lower()
                 lines.append(f'  {name_val},{content_val},{tag_wrap_val}')
 
@@ -110,7 +113,7 @@ class ToonHandler(FormatHandler):
                             break
                         cells = self._split_delimited(r_content, delim_char)
                         row_dict = {}
-                        for field, cell in zip(fields, cells):
+                        for field, cell in zip(fields, cells, strict=False):
                             row_dict[field] = self._parse_value(cell)
                         rows.append(row_dict)
                         row_count += 1
@@ -179,20 +182,19 @@ class ToonHandler(FormatHandler):
             indent, content = lines[i]
             if indent < base_indent:
                 break
-            if indent == base_indent:
-                if content.startswith("- "):
-                    item_str = content[2:].strip()
-                    if not item_str:
-                        if i + 1 < n:
-                            next_indent, next_content = lines[i+1]
-                            if next_indent > base_indent:
-                                nested_obj, next_i = self._parse_object(lines, i + 1, next_indent)
-                                result.append(nested_obj)
-                                i = next_i
-                                continue
-                        result.append(None)
-                    else:
-                        result.append(self._parse_value(item_str))
+            if indent == base_indent and content.startswith("- "):
+                item_str = content[2:].strip()
+                if not item_str:
+                    if i + 1 < n:
+                        next_indent, _next_content = lines[i+1]
+                        if next_indent > base_indent:
+                            nested_obj, next_i = self._parse_object(lines, i + 1, next_indent)
+                            result.append(nested_obj)
+                            i = next_i
+                            continue
+                    result.append(None)
+                else:
+                    result.append(self._parse_value(item_str))
             i += 1
         return result, i
 

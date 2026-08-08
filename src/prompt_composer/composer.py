@@ -3,7 +3,7 @@
 import pathlib
 from collections import OrderedDict
 from collections.abc import Callable
-from typing import Any
+from typing import Any, override
 
 from prompt_composer.enums import OutputFormat, TemplateFormat, VariableStyle
 from prompt_composer.filters import DEFAULT_FILTERS
@@ -34,7 +34,7 @@ class PromptComposer:
         try:
             self._variable_style: VariableStyle = VariableStyle(variable_style)
         except ValueError:
-            raise ValueError(f"Unknown variable style: {variable_style}")
+            raise ValueError(f"Unknown variable style: {variable_style}") from None
 
         if renderer_name is not None:
             self._renderer_name = renderer_name
@@ -84,7 +84,7 @@ class PromptComposer:
             try:
                 fmt = TemplateFormat(template_format)
             except ValueError:
-                raise ValueError(f"Unknown template format: {template_format}")
+                raise ValueError(f"Unknown template format: {template_format}") from None
 
             if fmt == TemplateFormat.AUTO:
                 suffix = filepath.suffix.lower()
@@ -110,7 +110,7 @@ class PromptComposer:
         try:
             v_style = VariableStyle(variable_style)
         except ValueError:
-            raise ValueError(f"Unknown variable style: {variable_style}")
+            raise ValueError(f"Unknown variable style: {variable_style}") from None
 
         return cls.from_text(
             raw_text,
@@ -134,7 +134,7 @@ class PromptComposer:
             try:
                 fmt = TemplateFormat(template_format)
             except ValueError:
-                raise ValueError(f"Unknown template format: {template_format}")
+                raise ValueError(f"Unknown template format: {template_format}") from None
 
             if fmt == TemplateFormat.AUTO:
                 fmt = TemplateFormat(cls.detect_format(raw_text))
@@ -144,7 +144,7 @@ class PromptComposer:
         try:
             v_style = VariableStyle(variable_style)
         except ValueError:
-            raise ValueError(f"Unknown variable style: {variable_style}")
+            raise ValueError(f"Unknown variable style: {variable_style}") from None
 
         parsed = parser.parse(raw_text, variable_style=v_style)
         if len(parsed) == 4:
@@ -353,7 +353,7 @@ class PromptComposer:
         try:
             out_fmt = OutputFormat(output_format) if output_format is not None else None
         except ValueError:
-            raise ValueError(f"Unknown output format: {output_format}")
+            raise ValueError(f"Unknown output format: {output_format}") from None
 
         renderer = RendererRegistry.get(self._renderer_name)
 
@@ -389,6 +389,7 @@ class PromptComposer:
             renderer=RendererRegistry.get(self._renderer_name),
         )
 
+    @override
     def __repr__(self) -> str:
         sections = self.list_sections()
         unresolved = self.get_unresolved_variables()
@@ -403,7 +404,7 @@ class PromptComposer:
         try:
             fmt_val = TemplateFormat(fmt)
         except ValueError:
-            raise ValueError(f"Unknown format: {fmt}")
+            raise ValueError(f"Unknown format: {fmt}") from None
 
         handler_key = fmt_val.value
         if handler_key in ("json-compact", "json-pretty"):

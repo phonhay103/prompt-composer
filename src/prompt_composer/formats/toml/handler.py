@@ -1,8 +1,7 @@
 """TOML template format handler implementation."""
 
-from typing import Any
-
 import tomllib
+from typing import Any, override
 
 from prompt_composer.formats.base import FormatHandler
 from prompt_composer.section import PromptSection
@@ -11,6 +10,7 @@ from prompt_composer.section import PromptSection
 class TomlHandler(FormatHandler):
     """Parses and serializes prompt templates in TOML format."""
 
+    @override
     def parse(
         self, text: str, variable_style: str = "braces"
     ) -> tuple[str, list[PromptSection], str, dict[str, Any]]:
@@ -36,6 +36,7 @@ class TomlHandler(FormatHandler):
 
         return preamble, sections, epilogue, metadata
 
+    @override
     def serialize(
         self,
         preamble: str,
@@ -69,10 +70,12 @@ class TomlHandler(FormatHandler):
                 lines.append("")
                 lines.append("[[sections]]")
                 lines.append(f'name = "{self._escape_toml_str(sec.name)}"')
-                lines.append(f'content = "{self._escape_toml_str(sec.content)}"')
+                content_str = sec.content if isinstance(sec.content, str) else "<callable>"
+                lines.append(f'content = "{self._escape_toml_str(content_str)}"')
                 lines.append(f'tag_wrap = {str(sec.tag_wrap).lower()}')
                 if sec.condition is not None:
-                    lines.append(f'condition = "{self._escape_toml_str(sec.condition)}"')
+                    cond_str = sec.condition if isinstance(sec.condition, str) else "<callable>"
+                    lines.append(f'condition = "{self._escape_toml_str(cond_str)}"')
 
         return "\n".join(lines)
 
