@@ -11,9 +11,7 @@ class TomlHandler(FormatHandler):
     """Parses and serializes prompt templates in TOML format."""
 
     @override
-    def parse(
-        self, text: str, variable_style: str = "braces"
-    ) -> tuple[str, list[PromptSection], str, dict[str, Any]]:
+    def parse(self, text: str, variable_style: str = "braces") -> tuple[str, list[PromptSection], str, dict[str, Any]]:
         data = tomllib.loads(text)
         metadata = data.pop("metadata", {})
         if not isinstance(metadata, dict):
@@ -28,22 +26,13 @@ class TomlHandler(FormatHandler):
             content = item["content"]
             tag_wrap = item.get("tag_wrap", True)
             condition = item.get("condition", None)
-            sections.append(
-                PromptSection(
-                    name=name, content=content, tag_wrap=tag_wrap, condition=condition
-                )
-            )
+            sections.append(PromptSection(name=name, content=content, tag_wrap=tag_wrap, condition=condition))
 
         return preamble, sections, epilogue, metadata
 
     @override
     def serialize(
-        self,
-        preamble: str,
-        sections: list[PromptSection],
-        epilogue: str,
-        metadata: dict[str, Any],
-        **kwargs
+        self, preamble: str, sections: list[PromptSection], epilogue: str, metadata: dict[str, Any], **kwargs
     ) -> str:
         lines = []
         if preamble:
@@ -58,11 +47,12 @@ class TomlHandler(FormatHandler):
                 if isinstance(v, str):
                     lines.append(f'{k} = "{self._escape_toml_str(v)}"')
                 elif isinstance(v, bool):
-                    lines.append(f'{k} = {str(v).lower()}')
+                    lines.append(f"{k} = {str(v).lower()}")
                 elif isinstance(v, (int, float)):
-                    lines.append(f'{k} = {v}')
+                    lines.append(f"{k} = {v}")
                 else:
                     import json
+
                     lines.append(f'{k} = "{self._escape_toml_str(json.dumps(v))}"')
 
         if sections:
@@ -72,7 +62,7 @@ class TomlHandler(FormatHandler):
                 lines.append(f'name = "{self._escape_toml_str(sec.name)}"')
                 content_str = sec.content if isinstance(sec.content, str) else "<callable>"
                 lines.append(f'content = "{self._escape_toml_str(content_str)}"')
-                lines.append(f'tag_wrap = {str(sec.tag_wrap).lower()}')
+                lines.append(f"tag_wrap = {str(sec.tag_wrap).lower()}")
                 if sec.condition is not None:
                     cond_str = sec.condition if isinstance(sec.condition, str) else "<callable>"
                     lines.append(f'condition = "{self._escape_toml_str(cond_str)}"')
@@ -80,4 +70,4 @@ class TomlHandler(FormatHandler):
         return "\n".join(lines)
 
     def _escape_toml_str(self, s: str) -> str:
-        return s.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n').replace('\r', '\\r')
+        return s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n").replace("\r", "\\r")

@@ -11,9 +11,7 @@ class ToonHandler(FormatHandler):
     """Parses and serializes prompt templates in TOON format."""
 
     @override
-    def parse(
-        self, text: str, variable_style: str = "braces"
-    ) -> tuple[str, list[PromptSection], str, dict[str, Any]]:
+    def parse(self, text: str, variable_style: str = "braces") -> tuple[str, list[PromptSection], str, dict[str, Any]]:
         data = self._decode_toon(text)
         metadata = data.pop("metadata", {})
         if not isinstance(metadata, dict):
@@ -28,42 +26,33 @@ class ToonHandler(FormatHandler):
             content = item["content"]
             tag_wrap = item.get("tag_wrap", True)
             condition = item.get("condition", None)
-            sections.append(
-                PromptSection(
-                    name=name, content=content, tag_wrap=tag_wrap, condition=condition
-                )
-            )
+            sections.append(PromptSection(name=name, content=content, tag_wrap=tag_wrap, condition=condition))
 
         return preamble, sections, epilogue, metadata
 
     @override
     def serialize(
-        self,
-        preamble: str,
-        sections: list[PromptSection],
-        epilogue: str,
-        metadata: dict[str, Any],
-        **kwargs
+        self, preamble: str, sections: list[PromptSection], epilogue: str, metadata: dict[str, Any], **kwargs
     ) -> str:
         lines = []
         if preamble:
-            lines.append(f'preamble: {self._escape_toon_str(preamble)}')
+            lines.append(f"preamble: {self._escape_toon_str(preamble)}")
         if epilogue:
-            lines.append(f'epilogue: {self._escape_toon_str(epilogue)}')
+            lines.append(f"epilogue: {self._escape_toon_str(epilogue)}")
 
         if metadata:
-            lines.append('metadata:')
+            lines.append("metadata:")
             for k, v in metadata.items():
-                lines.append(f'  {k}: {self._escape_toon_str(str(v))}')
+                lines.append(f"  {k}: {self._escape_toon_str(str(v))}")
 
         if sections:
-            lines.append(f'sections[{len(sections)}]{{name,content,tag_wrap}}:')
+            lines.append(f"sections[{len(sections)}]{{name,content,tag_wrap}}:")
             for sec in sections:
                 name_val = self._escape_toon_str(sec.name)
                 content_str = sec.content if isinstance(sec.content, str) else "<callable>"
                 content_val = self._escape_toon_str(content_str)
                 tag_wrap_val = str(sec.tag_wrap).lower()
-                lines.append(f'  {name_val},{content_val},{tag_wrap_val}')
+                lines.append(f"  {name_val},{content_val},{tag_wrap_val}")
 
         return "\n".join(lines)
 
@@ -73,7 +62,7 @@ class ToonHandler(FormatHandler):
             stripped = line.strip()
             if not stripped or stripped.startswith("#"):
                 continue
-            indent = len(line) - len(line.lstrip(' '))
+            indent = len(line) - len(line.lstrip(" "))
             lines.append((indent, stripped))
 
         if not lines:
@@ -96,7 +85,7 @@ class ToonHandler(FormatHandler):
 
             if indent == base_indent:
                 # 1. Tabular array header
-                tab_match = re.match(r'^(\w+)?\[(\d+)([^\]]*?)\]\{([^\}]+)\}:$', content)
+                tab_match = re.match(r"^(\w+)?\[(\d+)([^\]]*?)\]\{([^\}]+)\}:$", content)
                 if tab_match:
                     key = tab_match.group(1) or "array"
                     length = int(tab_match.group(2))
@@ -123,7 +112,7 @@ class ToonHandler(FormatHandler):
                     continue
 
                 # 2. Inline array
-                inline_match = re.match(r'^(\w+)\[(\d+)([^\]]*?)\]:\s*(.*)$', content)
+                inline_match = re.match(r"^(\w+)\[(\d+)([^\]]*?)\]:\s*(.*)$", content)
                 if inline_match:
                     key = inline_match.group(1)
                     delim_char = inline_match.group(3).strip() or ","
@@ -138,10 +127,10 @@ class ToonHandler(FormatHandler):
                     continue
 
                 # 3. Standard key-value or key-only
-                colon_idx = self._find_unquoted_char(content, ':')
+                colon_idx = self._find_unquoted_char(content, ":")
                 if colon_idx != -1:
                     key = content[:colon_idx].strip()
-                    val_str = content[colon_idx+1:].strip()
+                    val_str = content[colon_idx + 1 :].strip()
                     if key.startswith('"') and key.endswith('"') and len(key) >= 2:
                         key = key[1:-1]
 
@@ -150,7 +139,7 @@ class ToonHandler(FormatHandler):
                         i += 1
                     else:
                         if i + 1 < n:
-                            next_indent, next_content = lines[i+1]
+                            next_indent, next_content = lines[i + 1]
                             if next_indent > base_indent:
                                 if next_content.startswith("- "):
                                     list_val, next_i = self._parse_list(lines, i + 1, next_indent)
@@ -172,9 +161,7 @@ class ToonHandler(FormatHandler):
 
         return result, i
 
-    def _parse_list(
-        self, lines: list[tuple[int, str]], start_idx: int, base_indent: int
-    ) -> tuple[list[Any], int]:
+    def _parse_list(self, lines: list[tuple[int, str]], start_idx: int, base_indent: int) -> tuple[list[Any], int]:
         result = []
         i = start_idx
         n = len(lines)
@@ -186,7 +173,7 @@ class ToonHandler(FormatHandler):
                 item_str = content[2:].strip()
                 if not item_str:
                     if i + 1 < n:
-                        next_indent, _next_content = lines[i+1]
+                        next_indent, _next_content = lines[i + 1]
                         if next_indent > base_indent:
                             nested_obj, next_i = self._parse_object(lines, i + 1, next_indent)
                             result.append(nested_obj)
@@ -206,7 +193,7 @@ class ToonHandler(FormatHandler):
             c = text[i]
             if c == '"':
                 in_quotes = not in_quotes
-            elif c == '\\' and i + 1 < n:
+            elif c == "\\" and i + 1 < n:
                 i += 2
                 continue
             elif c == char and not in_quotes:
@@ -226,8 +213,8 @@ class ToonHandler(FormatHandler):
                 in_quotes = not in_quotes
                 current.append(c)
                 i += 1
-            elif c == '\\' and i + 1 < n:
-                current.append(text[i:i+2])
+            elif c == "\\" and i + 1 < n:
+                current.append(text[i : i + 2])
                 i += 2
             elif c == delim and not in_quotes:
                 result.append("".join(current).strip())
@@ -245,6 +232,7 @@ class ToonHandler(FormatHandler):
             return ""
         if val_str.startswith('"') and val_str.endswith('"') and len(val_str) >= 2:
             import json
+
             try:
                 return json.loads(val_str)
             except Exception:
@@ -255,7 +243,7 @@ class ToonHandler(FormatHandler):
             return False
         if val_str == "null":
             return None
-        if re.match(r'^-?[0-9]+(?:\.[0-9]+)?(?:e[+-]?[0-9]+)?$', val_str, re.IGNORECASE):
+        if re.match(r"^-?[0-9]+(?:\.[0-9]+)?(?:e[+-]?[0-9]+)?$", val_str, re.IGNORECASE):
             try:
                 if "." in val_str or "e" in val_str.lower():
                     return float(val_str)
@@ -268,12 +256,13 @@ class ToonHandler(FormatHandler):
         if not isinstance(val, str):
             return str(val)
         needs_quotes = (
-            not val or
-            any(c in val for c in (' ', '\n', '\r', '\t', ',', ':', '{', '}', '[', ']')) or
-            val.startswith('#') or
-            val in ('true', 'false', 'null')
+            not val
+            or any(c in val for c in (" ", "\n", "\r", "\t", ",", ":", "{", "}", "[", "]"))
+            or val.startswith("#")
+            or val in ("true", "false", "null")
         )
         if needs_quotes:
             import json
+
             return json.dumps(val)
         return val

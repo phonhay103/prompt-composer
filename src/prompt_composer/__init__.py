@@ -17,10 +17,14 @@ Usage:
 
 from prompt_composer.composer import PromptComposer
 from prompt_composer.enums import OutputFormat, TemplateFormat, VariableStyle
+from prompt_composer.formats import DefaultFormatDetector, FormatDetector, FormatDetectorRegistry
 from prompt_composer.remote import RemotePromptFormatter, RemoteProviderRegistry
 from prompt_composer.section import PromptSection
 
 __all__ = [
+    "DefaultFormatDetector",
+    "FormatDetector",
+    "FormatDetectorRegistry",
     "OutputFormat",
     "PromptComposer",
     "PromptSection",
@@ -29,4 +33,3 @@ __all__ = [
     "TemplateFormat",
     "VariableStyle",
 ]
-

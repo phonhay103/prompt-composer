@@ -1,4 +1,5 @@
 """Comprehensive tests for PromptComposer."""
+
 import json
 import pathlib
 import tempfile
@@ -6,6 +7,7 @@ import tempfile
 from prompt_composer import PromptComposer, PromptSection
 
 # --- PromptSection Tests ---
+
 
 class TestPromptSection:
     def test_basic_render(self):
@@ -80,6 +82,7 @@ class TestPromptSection:
 
 # --- PromptComposer Factory & Formats Tests ---
 
+
 class TestPromptComposerFactory:
     def test_from_text_xml(self):
         template = """<role>\n  You are an expert planner.\n</role>\n\n<tools>\n{available_tools}\n</tools>"""
@@ -93,9 +96,9 @@ class TestPromptComposerFactory:
             "preamble": "Hello JSON",
             "sections": [
                 {"name": "role", "content": "You are a translator.", "tag_wrap": True},
-                {"name": "context", "content": "{text}", "tag_wrap": False}
+                {"name": "context", "content": "{text}", "tag_wrap": False},
             ],
-            "epilogue": "Bye JSON"
+            "epilogue": "Bye JSON",
         }
         composer = PromptComposer.from_text(json.dumps(template))
         assert composer.list_sections() == ["role", "context"]
@@ -139,6 +142,7 @@ sections:
 
 # --- Programmatic & Helper Methods Tests ---
 
+
 class TestProgrammaticHelpers:
     def test_helpers(self):
         composer = (
@@ -162,6 +166,7 @@ class TestProgrammaticHelpers:
 
 # --- Variable Management Tests ---
 
+
 class TestVariableManagement:
     def test_variable_styles(self):
         # Braces style (default)
@@ -179,15 +184,11 @@ class TestVariableManagement:
     def test_filters(self):
         composer = PromptComposer()
         composer.set_section("s", "Json: {d:json} Upper: {u:upper} Indent: {i:indent2}")
-        composer.set_variables({
-            "d": {"a": 1},
-            "u": "low",
-            "i": "line1\nline2"
-        })
+        composer.set_variables({"d": {"a": 1}, "u": "low", "i": "line1\nline2"})
         rendered = composer.render()
         assert '"a": 1' in rendered
-        assert 'LOW' in rendered
-        assert '  line2' in rendered
+        assert "LOW" in rendered
+        assert "  line2" in rendered
 
     def test_custom_filters(self):
         composer = PromptComposer()
@@ -255,9 +256,7 @@ sections:
 
         template_yaml = "sections:\n  - name: s\n    content: c"
         composer2 = PromptComposer.from_text(
-            template_yaml,
-            template_format=TemplateFormat.YAML,
-            variable_style=VariableStyle.BRACES
+            template_yaml, template_format=TemplateFormat.YAML, variable_style=VariableStyle.BRACES
         )
         assert composer2.list_sections() == ["s"]
 
@@ -269,7 +268,9 @@ sections:
         from prompt_composer.parsers.base import BaseParser
 
         class MockCustomParser(BaseParser):
-            def parse(self, text: str, variable_style: str = "braces") -> tuple[str, list[PromptSection], str, dict[str, Any]]:
+            def parse(
+                self, text: str, variable_style: str = "braces"
+            ) -> tuple[str, list[PromptSection], str, dict[str, Any]]:
                 sections = []
                 for line in text.strip().split("\n"):
                     if "=" in line:
@@ -323,7 +324,7 @@ sections:
         assert composer_yaml1.metadata == {
             "name": "Translator Prompt",
             "version": "1.2.3",
-            "description": "Translates user text"
+            "description": "Translates user text",
         }
         assert composer_yaml1.list_sections() == ["role"]
 
@@ -338,10 +339,7 @@ sections:
     content: "translator"
 """
         composer_yaml2 = PromptComposer.from_text(yaml_text_key, template_format="yaml")
-        assert composer_yaml2.metadata == {
-            "name": "Key Prompt",
-            "version": "2.0.0"
-        }
+        assert composer_yaml2.metadata == {"name": "Key Prompt", "version": "2.0.0"}
 
         # 3. JSON Parser with top-level metadata key
         json_text = """{
@@ -355,10 +353,7 @@ sections:
             ]
         }"""
         composer_json = PromptComposer.from_text(json_text, template_format="json")
-        assert composer_json.metadata == {
-            "name": "JSON Prompt",
-            "version": "1.0"
-        }
+        assert composer_json.metadata == {"name": "JSON Prompt", "version": "1.0"}
 
         # 4. Markdown Parser with Frontmatter
         md_text = """---
@@ -369,10 +364,7 @@ author: AI
 You are a markdown parser
 """
         composer_md = PromptComposer.from_text(md_text, template_format="markdown")
-        assert composer_md.metadata == {
-            "title": "Markdown Prompt",
-            "author": "AI"
-        }
+        assert composer_md.metadata == {"title": "Markdown Prompt", "author": "AI"}
         assert composer_md.list_sections() == ["role"]
 
         # 5. XML Parser with `<metadata>`
@@ -384,10 +376,7 @@ You are a markdown parser
             You are XML
         </role>"""
         composer_xml = PromptComposer.from_text(xml_text, template_format="xml")
-        assert composer_xml.metadata == {
-            "title": "XML Prompt",
-            "version": "4.2"
-        }
+        assert composer_xml.metadata == {"title": "XML Prompt", "version": "4.2"}
         assert composer_xml.list_sections() == ["role"]
 
     def test_advanced_boolean_conditions(self):
@@ -429,7 +418,7 @@ You are a markdown parser
         composer.set_variable("x", ["a", "b"])
         # JSON output will be parsed, dumped, upper-cased, then trimmed
         rendered = composer.render()
-        assert "Val: [\n  \"A\",\n  \"B\"\n]" in rendered or "Val: [\n  \"A\",\n  \"B\"\n]" in rendered
+        assert 'Val: [\n  "A",\n  "B"\n]' in rendered or 'Val: [\n  "A",\n  "B"\n]' in rendered
 
 
 class TestJinjaRenderer:
@@ -441,12 +430,7 @@ class TestJinjaRenderer:
 
     def test_jinja_control_flow(self):
         composer = PromptComposer(renderer_name="jinja")
-        content = (
-            "Tools:\n"
-            "{%- for tool in tools %}\n"
-            "- {{ tool }}\n"
-            "{%- endfor %}"
-        )
+        content = "Tools:\n{%- for tool in tools %}\n- {{ tool }}\n{%- endfor %}"
         composer.set_section("tools", content, tag_wrap=False)
         composer.set_variable("tools", ["search", "view_file"])
         assert composer.render() == "Tools:\n- search\n- view_file"
@@ -466,3 +450,35 @@ class TestJinjaRenderer:
         assert composer.render() == "test"
 
 
+class TestFormatDetectionDI:
+    def test_local_detector_injection_from_text(self):
+        class CustomDetector:
+            def detect(self, text: str, filepath=None) -> str:
+                return "yaml"
+
+        text = "sections:\n  - name: role\n    content: Custom"
+        composer = PromptComposer.from_text(text, template_format="auto", detector=CustomDetector())
+        assert "role" in composer.list_sections()
+
+    def test_global_detector_registry(self):
+        from prompt_composer import FormatDetectorRegistry
+
+        original = FormatDetectorRegistry.get_default()
+        try:
+
+            class DummyDetector:
+                def detect(self, text: str, filepath=None) -> str:
+                    return "toml"
+
+            FormatDetectorRegistry.set_default(DummyDetector())
+            assert FormatDetectorRegistry.get_default() is not original
+
+            toml_text = """
+            [[sections]]
+            name = "dummy"
+            content = "Hello"
+            """
+            composer = PromptComposer.from_text(toml_text)
+            assert "dummy" in composer.list_sections()
+        finally:
+            FormatDetectorRegistry.set_default(original)

@@ -11,9 +11,7 @@ class HclHandler(FormatHandler):
     """Parses and serializes prompt templates in HCL format."""
 
     @override
-    def parse(
-        self, text: str, variable_style: str = "braces"
-    ) -> tuple[str, list[PromptSection], str, dict[str, Any]]:
+    def parse(self, text: str, variable_style: str = "braces") -> tuple[str, list[PromptSection], str, dict[str, Any]]:
         # A simple robust parser for HCL prompt configuration format
         preamble = ""
         epilogue = ""
@@ -29,7 +27,7 @@ class HclHandler(FormatHandler):
             eq_idx = line.find("=")
             if eq_idx == -1:
                 return None, start_idx + 1
-            val_part = line[eq_idx+1:].strip()
+            val_part = line[eq_idx + 1 :].strip()
 
             # Check for Heredoc
             if val_part.startswith("<<"):
@@ -62,7 +60,7 @@ class HclHandler(FormatHandler):
 
             # Check for quoted string
             if val_part.startswith('"') and val_part.endswith('"'):
-                return val_part[1:-1].replace('\\"', '"').replace('\\n', '\n'), start_idx + 1
+                return val_part[1:-1].replace('\\"', '"').replace("\\n", "\n"), start_idx + 1
 
             # Check for boolean
             if val_part.lower() == "true":
@@ -116,10 +114,7 @@ class HclHandler(FormatHandler):
                             i += 1
                     sections.append(
                         PromptSection(
-                            name=sec_name,
-                            content=sec_content,
-                            tag_wrap=sec_tag_wrap,
-                            condition=sec_condition
+                            name=sec_name, content=sec_content, tag_wrap=sec_tag_wrap, condition=sec_condition
                         )
                     )
                 else:
@@ -135,7 +130,7 @@ class HclHandler(FormatHandler):
                         if "=" in sub_line:
                             eq_idx = sub_line.find("=")
                             k = sub_line[:eq_idx].strip()
-                            val_str = sub_line[eq_idx+1:].strip()
+                            val_str = sub_line[eq_idx + 1 :].strip()
                             if val_str.startswith('"') and val_str.endswith('"'):
                                 v = val_str[1:-1]
                             elif val_str.lower() == "true":
@@ -157,12 +152,7 @@ class HclHandler(FormatHandler):
 
     @override
     def serialize(
-        self,
-        preamble: str,
-        sections: list[PromptSection],
-        epilogue: str,
-        metadata: dict[str, Any],
-        **_kwargs
+        self, preamble: str, sections: list[PromptSection], epilogue: str, metadata: dict[str, Any], **_kwargs
     ) -> str:
         lines = []
 

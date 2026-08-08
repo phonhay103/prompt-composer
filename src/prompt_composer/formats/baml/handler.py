@@ -11,17 +11,11 @@ class BamlHandler(FormatHandler):
     """Parses and serializes prompt templates in BAML format."""
 
     @override
-    def parse(
-        self, text: str, variable_style: str = "braces"
-    ) -> tuple[str, list[PromptSection], str, dict[str, Any]]:
+    def parse(self, text: str, variable_style: str = "braces") -> tuple[str, list[PromptSection], str, dict[str, Any]]:
         cleaned_text = self._strip_comments(text)
         blocks = self._parse_blocks(cleaned_text)
 
-        metadata: dict[str, Any] = {
-            "classes": {},
-            "enums": {},
-            "functions": {}
-        }
+        metadata: dict[str, Any] = {"classes": {}, "enums": {}, "functions": {}}
 
         functions_data = []
 
@@ -48,7 +42,7 @@ class BamlHandler(FormatHandler):
                         "arguments": func_info["arguments"],
                         "return_type": func_info["return_type"],
                         "client": body_info["client"],
-                        "prompt": body_info["prompt"]
+                        "prompt": body_info["prompt"],
                     }
                     functions_data.append(func_data)
                     metadata["functions"][func_info["name"]] = func_data
@@ -69,25 +63,30 @@ class BamlHandler(FormatHandler):
 
             # Detect nested format within the prompt content
             from prompt_composer.composer import PromptComposer
+
             detected_fmt = PromptComposer.detect_format(prompt_content)
 
             if detected_fmt == "xml":
                 if "<" in prompt_content and ">" in prompt_content:
                     from prompt_composer.formats.xml.handler import XmlHandler
+
                     preamble, sections, epilogue, p_metadata = XmlHandler().parse(prompt_content, variable_style)
                     metadata.update(p_metadata)
                 else:
                     sections = [PromptSection(name=func["name"], content=prompt_content, tag_wrap=False)]
             elif detected_fmt == "markdown":
                 from prompt_composer.formats.markdown.handler import MarkdownHandler
+
                 preamble, sections, epilogue, p_metadata = MarkdownHandler().parse(prompt_content, variable_style)
                 metadata.update(p_metadata)
             elif detected_fmt == "json":
                 from prompt_composer.formats.json.handler import JsonHandler
+
                 preamble, sections, epilogue, p_metadata = JsonHandler().parse(prompt_content, variable_style)
                 metadata.update(p_metadata)
             elif detected_fmt == "yaml":
                 from prompt_composer.formats.yaml.handler import YamlHandler
+
                 preamble, sections, epilogue, p_metadata = YamlHandler().parse(prompt_content, variable_style)
                 metadata.update(p_metadata)
             else:
@@ -95,13 +94,7 @@ class BamlHandler(FormatHandler):
         elif len(functions_data) > 1:
             # Multiple functions case
             for func in functions_data:
-                sections.append(
-                    PromptSection(
-                        name=func["name"],
-                        content=func["prompt"],
-                        tag_wrap=False
-                    )
-                )
+                sections.append(PromptSection(name=func["name"], content=func["prompt"], tag_wrap=False))
         else:
             preamble = text
 
@@ -109,12 +102,7 @@ class BamlHandler(FormatHandler):
 
     @override
     def serialize(
-        self,
-        preamble: str,
-        sections: list[PromptSection],
-        epilogue: str,
-        metadata: dict[str, Any],
-        **_kwargs
+        self, preamble: str, sections: list[PromptSection], epilogue: str, metadata: dict[str, Any], **_kwargs
     ) -> str:
         parts = []
 
@@ -167,10 +155,10 @@ class BamlHandler(FormatHandler):
 
         parts.append(
             f"function {func_name}({args_str}) -> {ret_type} {{\n"
-            f"  client \"{client}\"\n"
-            f"  prompt #\"\n"
+            f'  client "{client}"\n'
+            f'  prompt #"\n'
             f"{indented_prompt}\n"
-            f"  \"#\n"
+            f'  "#\n'
             f"}}"
         )
 
@@ -181,11 +169,11 @@ class BamlHandler(FormatHandler):
         i = 0
         n = len(text)
         while i < n:
-            if text[i:i+2] == '#"':
+            if text[i : i + 2] == '#"':
                 result.append('#"')
                 i += 2
                 while i < n:
-                    if text[i:i+2] == '"#':
+                    if text[i : i + 2] == '"#':
                         result.append('"#')
                         i += 2
                         break
@@ -196,8 +184,8 @@ class BamlHandler(FormatHandler):
                 result.append('"')
                 i += 1
                 while i < n:
-                    if text[i] == '\\' and i + 1 < n:
-                        result.append(text[i:i+2])
+                    if text[i] == "\\" and i + 1 < n:
+                        result.append(text[i : i + 2])
                         i += 2
                     elif text[i] == '"':
                         result.append('"')
@@ -206,22 +194,22 @@ class BamlHandler(FormatHandler):
                     else:
                         result.append(text[i])
                         i += 1
-            elif text[i:i+2] == '//':
+            elif text[i : i + 2] == "//":
                 i += 2
-                while i < n and text[i] != '\n':
+                while i < n and text[i] != "\n":
                     i += 1
                 if i < n:
                     result.append(text[i])
                     i += 1
-            elif text[i:i+2] == '/*':
+            elif text[i : i + 2] == "/*":
                 i += 2
                 while i < n:
-                    if text[i:i+2] == '*/':
+                    if text[i : i + 2] == "*/":
                         i += 2
                         break
                     else:
-                        if text[i] == '\n':
-                            result.append('\n')
+                        if text[i] == "\n":
+                            result.append("\n")
                         i += 1
             else:
                 result.append(text[i])
@@ -234,48 +222,48 @@ class BamlHandler(FormatHandler):
         blocks = []
         header_start = 0
         while i < n:
-            if text[i:i+2] == '#"':
+            if text[i : i + 2] == '#"':
                 i += 2
-                while i < n and text[i:i+2] != '"#':
+                while i < n and text[i : i + 2] != '"#':
                     i += 1
                 if i < n:
                     i += 2
             elif text[i] == '"':
                 i += 1
                 while i < n:
-                    if text[i] == '\\' and i + 1 < n:
+                    if text[i] == "\\" and i + 1 < n:
                         i += 2
                     elif text[i] == '"':
                         i += 1
                         break
                     else:
                         i += 1
-            elif text[i] == '{':
+            elif text[i] == "{":
                 header = text[header_start:i].strip()
                 brace_count = 1
                 body_start = i + 1
                 i += 1
                 while i < n and brace_count > 0:
-                    if text[i:i+2] == '#"':
+                    if text[i : i + 2] == '#"':
                         i += 2
-                        while i < n and text[i:i+2] != '"#':
+                        while i < n and text[i : i + 2] != '"#':
                             i += 1
                         if i < n:
                             i += 2
                     elif text[i] == '"':
                         i += 1
                         while i < n:
-                            if text[i] == '\\' and i + 1 < n:
+                            if text[i] == "\\" and i + 1 < n:
                                 i += 2
                             elif text[i] == '"':
                                 i += 1
                                 break
                             else:
                                 i += 1
-                    elif text[i] == '{':
+                    elif text[i] == "{":
                         brace_count += 1
                         i += 1
-                    elif text[i] == '}':
+                    elif text[i] == "}":
                         brace_count -= 1
                         if brace_count == 0:
                             body = text[body_start:i]
@@ -304,7 +292,7 @@ class BamlHandler(FormatHandler):
         close_paren = header.find(")", open_paren)
         if close_paren == -1:
             return None
-        args_str = header[open_paren+1:close_paren].strip()
+        args_str = header[open_paren + 1 : close_paren].strip()
 
         arguments = {}
         if args_str:
@@ -319,13 +307,9 @@ class BamlHandler(FormatHandler):
         arrow = header.find("->", close_paren)
         return_type = "unknown"
         if arrow != -1:
-            return_type = header[arrow+2:].strip()
+            return_type = header[arrow + 2 :].strip()
 
-        return {
-            "name": name,
-            "arguments": arguments,
-            "return_type": return_type
-        }
+        return {"name": name, "arguments": arguments, "return_type": return_type}
 
     def _parse_function_body(self, body: str) -> dict[str, Any]:
         client = ""
@@ -341,7 +325,4 @@ class BamlHandler(FormatHandler):
             if prompt_end != -1:
                 prompt_content = body[content_start:prompt_end]
 
-        return {
-            "client": client,
-            "prompt": prompt_content
-        }
+        return {"client": client, "prompt": prompt_content}

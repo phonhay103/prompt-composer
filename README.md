@@ -102,9 +102,9 @@ markdown_prompt = prompt.render(output_format=OutputFormat.MARKDOWN)
 
 ```python
 prompt = PromptComposer.from_text("<role>Expert</role><tools>{tools}</tools>")
-prompt.list_sections()            # ["role", "tools"]
-prompt.get_all_variables()        # ["tools"]
-prompt.get_unresolved_variables() # ["tools"]
+prompt.list_sections()  # ["role", "tools"]
+prompt.get_all_variables()  # ["tools"]
+prompt.get_unresolved_variables()  # ["tools"]
 prompt.set_variable("tools", "...")
-prompt.get_unresolved_variables() # []
+prompt.get_unresolved_variables()  # []
 ```

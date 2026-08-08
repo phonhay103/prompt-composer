@@ -13,7 +13,6 @@ from prompt_composer.remote.providers import InMemoryProvider, LangfuseProvider
 
 
 class MockTransport:
-
     def __init__(self, response_data: dict[str, Any]):
         self.response_data = response_data
         self.last_request = {}

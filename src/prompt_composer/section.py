@@ -40,6 +40,7 @@ class PromptSection:
             return True
         if callable(self.condition):
             from typing import cast
+
             cond_fn = cast(Callable[[dict[str, Any]], bool], self.condition)
             return bool(cond_fn(variables))
         if isinstance(self.condition, str):
@@ -62,15 +63,15 @@ class PromptSection:
             if expr[i].isspace():
                 i += 1
                 continue
-            if expr[i] == '(':
-                tokens.append('(')
+            if expr[i] == "(":
+                tokens.append("(")
                 i += 1
-            elif expr[i] == ')':
-                tokens.append(')')
+            elif expr[i] == ")":
+                tokens.append(")")
                 i += 1
             else:
                 start = i
-                while i < n and not expr[i].isspace() and expr[i] not in ('(', ')'):
+                while i < n and not expr[i].isspace() and expr[i] not in ("(", ")"):
                     i += 1
                 token = expr[start:i]
                 tokens.append(token)
@@ -95,13 +96,13 @@ class PromptSection:
 
         def parse_factor() -> bool:
             token = peek()
-            if token == 'NOT':  # noqa: S105
-                consume('NOT')
+            if token == "NOT":  # noqa: S105
+                consume("NOT")
                 return not parse_factor()
-            elif token == '(':  # noqa: S105
-                consume('(')
+            elif token == "(":  # noqa: S105
+                consume("(")
                 val = parse_expr()
-                consume(')')
+                consume(")")
                 return val
             else:
                 ident = consume()
@@ -109,16 +110,16 @@ class PromptSection:
 
         def parse_term() -> bool:
             val = parse_factor()
-            while peek() == 'AND':
-                consume('AND')
+            while peek() == "AND":
+                consume("AND")
                 right = parse_factor()
                 val = val and right
             return val
 
         def parse_expr() -> bool:
             val = parse_term()
-            while peek() == 'OR':
-                consume('OR')
+            while peek() == "OR":
+                consume("OR")
                 right = parse_term()
                 val = val or right
             return val
@@ -130,7 +131,6 @@ class PromptSection:
             return result
         except Exception:
             return bool(variables.get(expr))
-
 
     def get_variables(self, variable_style: str | VariableStyle = VariableStyle.BRACES) -> list[str]:
         """Extract all variable names from this section's content."""
@@ -214,6 +214,7 @@ class PromptSection:
         content_str: str
         if callable(self.content):
             from typing import cast
+
             content_str = cast(Callable[[dict[str, Any]], str], self.content)(variables or {})
         else:
             content_str = str(self.content)

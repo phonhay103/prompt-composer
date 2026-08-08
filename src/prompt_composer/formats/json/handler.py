@@ -11,9 +11,7 @@ class JsonHandler(FormatHandler):
     """Parses and serializes prompt templates in JSON format."""
 
     @override
-    def parse(
-        self, text: str, variable_style: str = "braces"
-    ) -> tuple[str, list[PromptSection], str, dict[str, Any]]:
+    def parse(self, text: str, variable_style: str = "braces") -> tuple[str, list[PromptSection], str, dict[str, Any]]:
         data = json.loads(text)
         metadata = data.pop("metadata", {})
         if not isinstance(metadata, dict):
@@ -28,22 +26,13 @@ class JsonHandler(FormatHandler):
             content = item["content"]
             tag_wrap = item.get("tag_wrap", True)
             condition = item.get("condition", None)
-            sections.append(
-                PromptSection(
-                    name=name, content=content, tag_wrap=tag_wrap, condition=condition
-                )
-            )
+            sections.append(PromptSection(name=name, content=content, tag_wrap=tag_wrap, condition=condition))
 
         return preamble, sections, epilogue, metadata
 
     @override
     def serialize(
-        self,
-        preamble: str,
-        sections: list[PromptSection],
-        epilogue: str,
-        metadata: dict[str, Any],
-        **kwargs
+        self, preamble: str, sections: list[PromptSection], epilogue: str, metadata: dict[str, Any], **kwargs
     ) -> str:
         sec_list = []
         for sec in sections:
@@ -74,6 +63,6 @@ class JsonHandler(FormatHandler):
             compact = False
 
         if compact:
-            return json.dumps(data, separators=(',', ':'))
+            return json.dumps(data, separators=(",", ":"))
         else:
             return json.dumps(data, indent=2)

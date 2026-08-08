@@ -61,7 +61,7 @@ def test_single_function_nested_xml():
       "#
     }
     """
-    composer = PromptComposer.from_text(template) # should auto-detect BAML
+    composer = PromptComposer.from_text(template)  # should auto-detect BAML
     assert composer.metadata["function_name"] == "GetTranslation"
     assert composer.metadata["client"] == "openai"
     assert composer.list_sections() == ["role", "instructions"]

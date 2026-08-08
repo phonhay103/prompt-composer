@@ -12,9 +12,7 @@ class YamlHandler(FormatHandler):
     """Parses and serializes prompt templates in YAML format."""
 
     @override
-    def parse(
-        self, text: str, variable_style: str = "braces"
-    ) -> tuple[str, list[PromptSection], str, dict[str, Any]]:
+    def parse(self, text: str, variable_style: str = "braces") -> tuple[str, list[PromptSection], str, dict[str, Any]]:
         docs = list(yaml.safe_load_all(text))
         docs = [doc for doc in docs if doc is not None]
 
@@ -40,22 +38,13 @@ class YamlHandler(FormatHandler):
             content = item["content"]
             tag_wrap = item.get("tag_wrap", True)
             condition = item.get("condition", None)
-            sections.append(
-                PromptSection(
-                    name=name, content=content, tag_wrap=tag_wrap, condition=condition
-                )
-            )
+            sections.append(PromptSection(name=name, content=content, tag_wrap=tag_wrap, condition=condition))
 
         return preamble, sections, epilogue, metadata
 
     @override
     def serialize(
-        self,
-        preamble: str,
-        sections: list[PromptSection],
-        epilogue: str,
-        metadata: dict[str, Any],
-        **kwargs
+        self, preamble: str, sections: list[PromptSection], epilogue: str, metadata: dict[str, Any], **kwargs
     ) -> str:
         data = {}
         if preamble:

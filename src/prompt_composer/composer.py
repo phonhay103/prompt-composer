@@ -7,13 +7,12 @@ from typing import Any, override
 
 from prompt_composer.enums import OutputFormat, TemplateFormat, VariableStyle
 from prompt_composer.filters import DEFAULT_FILTERS
-from prompt_composer.formats import FormatRegistry
+from prompt_composer.formats import FormatDetector, FormatDetectorRegistry, FormatRegistry
 from prompt_composer.renderers import RendererRegistry
 from prompt_composer.section import PromptSection
 
 
 class PromptComposer:
-
     def __init__(
         self,
         sections: list[PromptSection] | None = None,
@@ -98,10 +97,11 @@ class PromptComposer:
         variable_style: str | VariableStyle = VariableStyle.BRACES,
         parser: Any | None = None,
         renderer_name: str | None = None,
+        detector: FormatDetector | None = None,
     ) -> "PromptComposer":
         """
         Load a template file and parse it into sections.
-        Automatically detects JSON, YAML, XML, or Markdown formats based on file extension and contents.
+        Automatically detects template format based on file extension and contents.
         """
         filepath = prompts_dir / filename
         with open(filepath, encoding="utf-8") as f:
@@ -114,25 +114,8 @@ class PromptComposer:
                 raise ValueError(f"Unknown template format: {template_format}") from None
 
             if fmt == TemplateFormat.AUTO:
-                suffix = filepath.suffix.lower()
-                if suffix == ".json":
-                    fmt = TemplateFormat.JSON
-                elif suffix in (".yaml", ".yml"):
-                    fmt = TemplateFormat.YAML
-                elif suffix in (".md", ".markdown"):
-                    fmt = TemplateFormat.MARKDOWN
-                elif suffix == ".xml":
-                    fmt = TemplateFormat.XML
-                elif suffix == ".baml":
-                    fmt = TemplateFormat.BAML
-                elif suffix == ".toml":
-                    fmt = TemplateFormat.TOML
-                elif suffix == ".toon":
-                    fmt = TemplateFormat.TOON
-                elif suffix == ".hcl":
-                    fmt = TemplateFormat.HCL
-                else:
-                    fmt = TemplateFormat(cls.detect_format(raw_text))
+                active_detector = detector or FormatDetectorRegistry.get_default()
+                fmt = TemplateFormat(active_detector.detect(raw_text, filepath))
         else:
             fmt = template_format
 
@@ -147,6 +130,7 @@ class PromptComposer:
             variable_style=v_style,
             parser=parser,
             renderer_name=renderer_name,
+            detector=detector,
         )
 
     @classmethod
@@ -157,6 +141,7 @@ class PromptComposer:
         variable_style: str | VariableStyle = VariableStyle.BRACES,
         parser: Any | None = None,
         renderer_name: str | None = None,
+        detector: FormatDetector | None = None,
     ) -> "PromptComposer":
         """Parse raw prompt text into sections."""
         if parser is None:
@@ -166,7 +151,8 @@ class PromptComposer:
                 raise ValueError(f"Unknown template format: {template_format}") from None
 
             if fmt == TemplateFormat.AUTO:
-                fmt = TemplateFormat(cls.detect_format(raw_text))
+                active_detector = detector or FormatDetectorRegistry.get_default()
+                fmt = TemplateFormat(active_detector.detect(raw_text))
 
             parser = cls.get_parser(fmt)
 
@@ -195,40 +181,8 @@ class PromptComposer:
 
     @staticmethod
     def detect_format(text: str) -> str:
-        """Detect template format based on content analysis."""
-        trimmed = text.strip()
-        if trimmed.startswith("{") and trimmed.endswith("}"):
-            return "json"
-
-        # Check for HCL sections
-        import re
-        if re.search(r'\bsection\s+"[^"]+"\s*\{', text) or "preamble = " in text:
-            return "hcl"
-
-        if "sections:" in text or "preamble:" in text or "epilogue:" in text:
-            return "yaml"
-
-        # Check for BAML function and prompt pattern
-        import re
-        if re.search(r'\bfunction\s+\w+\s*\(', text) and re.search(r'\bprompt\s*#"', text):
-            return "baml"
-
-        # Check for TOML tables
-        if "[[sections]]" in text or "[metadata]" in text:
-            return "toml"
-
-        # Check for TOON format patterns
-        if "]{" in text or re.search(r'\w+\[\d+[^\]]*\]:', text):
-            return "toon"
-
-        # Check for Markdown headings (allowing leading indentation)
-        for line in text.splitlines():
-            stripped = line.strip()
-            if stripped.startswith("#"):
-                parts = stripped.split(maxsplit=1)
-                if parts and all(c == "#" for c in parts[0]):
-                    return "markdown"
-        return "xml"
+        """Detect template format based on content analysis using the default format detector."""
+        return FormatDetectorRegistry.get_default().detect(text)
 
     @staticmethod
     def get_parser(fmt: TemplateFormat) -> Any:
@@ -453,5 +407,5 @@ class PromptComposer:
             sections=list(self._sections.values()),
             epilogue=self._epilogue,
             metadata=self._metadata,
-            **kwargs
+            **kwargs,
         )

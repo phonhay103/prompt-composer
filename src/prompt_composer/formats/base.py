@@ -9,9 +9,7 @@ from prompt_composer.section import PromptSection
 class FormatHandler(Protocol):
     """Protocol for all template format handlers (parsing and serialization)."""
 
-    def parse(
-        self, text: str, variable_style: str = "braces"
-    ) -> tuple[str, list[PromptSection], str, dict[str, Any]]:
+    def parse(self, text: str, variable_style: str = "braces") -> tuple[str, list[PromptSection], str, dict[str, Any]]:
         """
         Parse raw template text into components.
 
@@ -25,12 +23,7 @@ class FormatHandler(Protocol):
         ...
 
     def serialize(
-        self,
-        preamble: str,
-        sections: list[PromptSection],
-        epilogue: str,
-        metadata: dict[str, Any],
-        **kwargs
+        self, preamble: str, sections: list[PromptSection], epilogue: str, metadata: dict[str, Any], **kwargs
     ) -> str:
         """
         Serialize template components back into format-specific string.

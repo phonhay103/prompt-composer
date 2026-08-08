@@ -15,8 +15,8 @@ def test_json_serialization():
         "metadata": {"name": "JSON Test", "version": "1.0"},
         "sections": [
             {"name": "role", "content": "Assistant", "tag_wrap": True},
-            {"name": "context", "content": "{input}", "tag_wrap": False}
-        ]
+            {"name": "context", "content": "{input}", "tag_wrap": False},
+        ],
     }
     composer = PromptComposer.from_text(json.dumps(template), template_format=TemplateFormat.JSON)
 
@@ -113,7 +113,7 @@ def test_baml_serialization():
     baml_out = composer.serialize(TemplateFormat.BAML)
     assert "class Query" in baml_out
     assert "function Search" in baml_out
-    assert "client \"google\"" in baml_out
+    assert 'client "google"' in baml_out
     assert "<role>" in baml_out
 
 
@@ -155,6 +155,7 @@ def test_toon_serialization():
     assert "metadata:" in toon_out
     assert "sections[1]" in toon_out
 
+
 def test_hcl_serialization():
     template = """
     preamble = "Hello HCL"
@@ -180,19 +181,21 @@ def test_hcl_serialization():
     }
     """
     composer = PromptComposer.from_text(template, template_format=TemplateFormat.HCL)
-    assert composer.render() == "Hello HCL\n\n<role>\nYou are a translation assistant.\n</role>\n\nSource context is multiline\nand very long.\n\nFinish."
+    assert (
+        composer.render()
+        == "Hello HCL\n\n<role>\nYou are a translation assistant.\n</role>\n\nSource context is multiline\nand very long.\n\nFinish."
+    )
     assert composer.metadata == {"version": "1.0", "draft": True}
 
     hcl_out = composer.serialize(TemplateFormat.HCL)
     assert 'preamble = "Hello HCL"' in hcl_out
     assert 'section "role" {' in hcl_out
-    assert 'tag_wrap = true' in hcl_out
-    assert '<<-EOF' in hcl_out
+    assert "tag_wrap = true" in hcl_out
+    assert "<<-EOF" in hcl_out
     assert 'version = "1.0"' in hcl_out
-    assert 'draft = true' in hcl_out
+    assert "draft = true" in hcl_out
 
     # Round trip
     composer_rt = PromptComposer.from_text(hcl_out, template_format=TemplateFormat.HCL)
     assert composer_rt.metadata == {"version": "1.0", "draft": True}
     assert len(composer_rt.list_sections()) == 2
-

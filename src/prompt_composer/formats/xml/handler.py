@@ -10,9 +10,7 @@ class XmlHandler(FormatHandler):
     """Parses and serializes prompt templates in XML format."""
 
     @override
-    def parse(
-        self, text: str, variable_style: str = "braces"
-    ) -> tuple[str, list[PromptSection], str, dict[str, Any]]:
+    def parse(self, text: str, variable_style: str = "braces") -> tuple[str, list[PromptSection], str, dict[str, Any]]:
         sections: list[PromptSection] = []
         preamble = ""
         epilogue = ""
@@ -75,9 +73,7 @@ class XmlHandler(FormatHandler):
                         else:
                             preamble = part
 
-                sections.append(
-                    PromptSection(name=tag_name, content=content, tag_wrap=True)
-                )
+                sections.append(PromptSection(name=tag_name, content=content, tag_wrap=True))
 
             last_end = start_close + len(close_tag)
             i = last_end
@@ -91,12 +87,7 @@ class XmlHandler(FormatHandler):
 
     @override
     def serialize(
-        self,
-        preamble: str,
-        sections: list[PromptSection],
-        epilogue: str,
-        metadata: dict[str, Any],
-        **kwargs
+        self, preamble: str, sections: list[PromptSection], epilogue: str, metadata: dict[str, Any], **kwargs
     ) -> str:
         parts: list[str] = []
         if metadata:

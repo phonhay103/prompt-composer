@@ -10,9 +10,7 @@ class MarkdownHandler(FormatHandler):
     """Parses and serializes prompt templates in Markdown format using headings as section dividers."""
 
     @override
-    def parse(
-        self, text: str, variable_style: str = "braces"
-    ) -> tuple[str, list[PromptSection], str, dict[str, Any]]:
+    def parse(self, text: str, variable_style: str = "braces") -> tuple[str, list[PromptSection], str, dict[str, Any]]:
         import yaml
 
         lines = text.splitlines()
@@ -93,16 +91,12 @@ class MarkdownHandler(FormatHandler):
 
     @override
     def serialize(
-        self,
-        preamble: str,
-        sections: list[PromptSection],
-        epilogue: str,
-        metadata: dict[str, Any],
-        **_kwargs
+        self, preamble: str, sections: list[PromptSection], epilogue: str, metadata: dict[str, Any], **_kwargs
     ) -> str:
         parts: list[str] = []
         if metadata:
             import yaml
+
             parts.append("---")
             parts.append(yaml.safe_dump(metadata, sort_keys=False).strip())
             parts.append("---")
