@@ -154,3 +154,45 @@ def test_toon_serialization():
     assert "preamble: " in toon_out and "Hello TOON" in toon_out
     assert "metadata:" in toon_out
     assert "sections[1]" in toon_out
+
+def test_hcl_serialization():
+    template = """
+    preamble = "Hello HCL"
+
+    section "role" {
+      content = "You are a translation assistant."
+      tag_wrap = true
+    }
+
+    section "context" {
+      content = <<-EOF
+      Source context is multiline
+      and very long.
+      EOF
+      tag_wrap = false
+    }
+
+    epilogue = "Finish."
+
+    metadata {
+      version = "1.0"
+      draft = true
+    }
+    """
+    composer = PromptComposer.from_text(template, template_format=TemplateFormat.HCL)
+    assert composer.render() == "Hello HCL\n\n<role>\nYou are a translation assistant.\n</role>\n\nSource context is multiline\nand very long.\n\nFinish."
+    assert composer.metadata == {"version": "1.0", "draft": True}
+
+    hcl_out = composer.serialize(TemplateFormat.HCL)
+    assert 'preamble = "Hello HCL"' in hcl_out
+    assert 'section "role" {' in hcl_out
+    assert 'tag_wrap = true' in hcl_out
+    assert '<<-EOF' in hcl_out
+    assert 'version = "1.0"' in hcl_out
+    assert 'draft = true' in hcl_out
+
+    # Round trip
+    composer_rt = PromptComposer.from_text(hcl_out, template_format=TemplateFormat.HCL)
+    assert composer_rt.metadata == {"version": "1.0", "draft": True}
+    assert len(composer_rt.list_sections()) == 2
+

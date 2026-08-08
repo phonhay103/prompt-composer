@@ -15,6 +15,7 @@ class TemplateFormat(StrEnum):
     BAML = "baml"
     TOML = "toml"
     TOON = "toon"
+    HCL = "hcl"
 
 
 

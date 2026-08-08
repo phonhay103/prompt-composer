@@ -19,13 +19,13 @@ def main() -> None:
 
     print("=== Loading from JSON ===")
     composer_json = PromptComposer.from_file("prompt_example.json", templates_dir)
-    composer_json.set_slots(slots)
+    composer_json.set_variables(slots)
     print(composer_json.render())
     print()
 
     print("=== Loading from YAML ===")
     composer_yaml = PromptComposer.from_file("prompt_example.yaml", templates_dir)
-    composer_yaml.set_slots(slots)
+    composer_yaml.set_variables(slots)
     print(composer_yaml.render())
     print()
 

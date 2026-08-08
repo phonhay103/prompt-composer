@@ -102,6 +102,8 @@ class PromptComposer:
                     fmt = TemplateFormat.TOML
                 elif suffix == ".toon":
                     fmt = TemplateFormat.TOON
+                elif suffix == ".hcl":
+                    fmt = TemplateFormat.HCL
                 else:
                     fmt = TemplateFormat(cls.detect_format(raw_text))
         else:
@@ -170,6 +172,12 @@ class PromptComposer:
         trimmed = text.strip()
         if trimmed.startswith("{") and trimmed.endswith("}"):
             return "json"
+
+        # Check for HCL sections
+        import re
+        if re.search(r'\bsection\s+"[^"]+"\s*\{', text) or "preamble = " in text:
+            return "hcl"
+
         if "sections:" in text or "preamble:" in text or "epilogue:" in text:
             return "yaml"
 
