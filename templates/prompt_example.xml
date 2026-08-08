@@ -1,0 +1,20 @@
+<metadata>
+  <test_key>test_value</test_key>
+</metadata>
+
+This is a preamble block.
+
+<role>
+You are a translation assistant named {name}.
+</role>
+
+<context>
+Source text: {text:upper}
+</context>
+
+<tools>
+Use these tools:
+{tools:json}
+</tools>
+
+Please output the translation now.

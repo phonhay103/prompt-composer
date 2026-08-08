@@ -1,0 +1,10 @@
+preamble: "This is a preamble block."
+epilogue: "Please output the translation now."
+
+metadata:
+  test_key: "test_value"
+
+sections[3]{name,content,tag_wrap}:
+  role,"You are a translation assistant named {name}.",true
+  context,"Source text: {text:upper}",true
+  tools,"Use these tools:\n{tools:json}",true

@@ -17,19 +17,18 @@ def main() -> None:
         "tools": [{"name": "translator", "description": "Translates text"}],
     }
 
-    print("=== Loading from JSON ===")
-    composer_json = PromptComposer.from_file("prompt_example.json", templates_dir)
-    composer_json.set_variables(slots)
-    print(composer_json.render())
-    print()
-
-    print("=== Loading from YAML ===")
-    composer_yaml = PromptComposer.from_file("prompt_example.yaml", templates_dir)
-    composer_yaml.set_variables(slots)
-    print(composer_yaml.render())
-    print()
+    formats = ["json", "yaml", "xml", "md", "toml", "toon", "hcl", "baml"]
+    for fmt in formats:
+        print(f"=== Loading from {fmt.upper()} ===")
+        filename = f"prompt_example.{fmt}"
+        composer = PromptComposer.from_file(filename, templates_dir)
+        composer.set_variables(slots)
+        print(composer.render())
+        print()
 
     print("=== Custom Filters Example ===")
+    composer_yaml = PromptComposer.from_file("prompt_example.yaml", templates_dir)
+    composer_yaml.set_variables(slots)
     # Registering a custom filter
     composer_yaml.register_filter("exclaim", lambda v: f"{str(v).upper()}!!!")
     composer_yaml.set_role("Greetings: {name:exclaim}")
