@@ -86,7 +86,7 @@ class TestPromptSection:
 class TestPromptComposerFactory:
     def test_from_text_xml(self):
         template = """<role>\n  You are an expert planner.\n</role>\n\n<tools>\n{available_tools}\n</tools>"""
-        composer = PromptComposer.from_text(template)
+        composer = PromptComposer.from_xml(template)
         assert composer.has_section("role")
         assert composer.has_section("tools")
         assert composer.list_sections() == ["role", "tools"]
@@ -100,7 +100,7 @@ class TestPromptComposerFactory:
             ],
             "epilogue": "Bye JSON",
         }
-        composer = PromptComposer.from_text(json.dumps(template))
+        composer = PromptComposer.from_json(json.dumps(template))
         assert composer.list_sections() == ["role", "context"]
         composer.set_variable("text", "world")
         rendered = composer.render()
@@ -120,23 +120,23 @@ sections:
     content: "Rule 1: Be polite."
     tag_wrap: false
 """
-        composer = PromptComposer.from_text(template)
+        composer = PromptComposer.from_yaml(template)
         assert composer.list_sections() == ["role", "rules"]
         rendered = composer.render()
         assert "Hello YAML" in rendered
         assert "<role>\nYou are an assistant.\n</role>" in rendered
         assert "Rule 1: Be polite." in rendered
 
-    def test_from_file_auto_detect(self):
+    def test_from_file_explicit_format(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             p_json = pathlib.Path(tmpdir) / "test.json"
             p_json.write_text(json.dumps({"sections": [{"name": "s1", "content": "c1"}]}))
-            composer_json = PromptComposer.from_file("test.json", pathlib.Path(tmpdir))
+            composer_json = PromptComposer.from_file("test.json", pathlib.Path(tmpdir), template_format="json")
             assert composer_json.list_sections() == ["s1"]
 
             p_yaml = pathlib.Path(tmpdir) / "test.yaml"
             p_yaml.write_text("sections:\n  - name: s2\n    content: c2")
-            composer_yaml = PromptComposer.from_file("test.yaml", pathlib.Path(tmpdir))
+            composer_yaml = PromptComposer.from_file("test.yaml", pathlib.Path(tmpdir), template_format="yaml")
             assert composer_yaml.list_sections() == ["s2"]
 
 
@@ -207,7 +207,7 @@ You are an assistant.
 ## tools
 {available_tools}
 """
-        composer = PromptComposer.from_text(template)
+        composer = PromptComposer.from_markdown(template)
         assert composer._preamble == "This is the preamble."
         assert composer.list_sections() == ["role", "tools"]
         assert composer.get_section("role").content == "You are an assistant."
@@ -282,7 +282,9 @@ sections:
         parser_instance = MockCustomParser()
 
         # Test from_text with injected parser
-        composer = PromptComposer.from_text("role = System Admin\nrules = Be secure", parser=parser_instance)
+        composer = PromptComposer.from_text(
+            "role = System Admin\nrules = Be secure", template_format="json", parser=parser_instance
+        )
         assert composer.list_sections() == ["role", "rules"]
         assert composer.get_section("role").content == "System Admin"
         assert "Mock Preamble" in composer.render()
@@ -292,7 +294,9 @@ sections:
         with tempfile.TemporaryDirectory() as tmpdir:
             p = pathlib.Path(tmpdir) / "test.custom"
             p.write_text("role = Custom Admin\nrules = Rule 1")
-            composer_file = PromptComposer.from_file("test.custom", pathlib.Path(tmpdir), parser=parser_instance)
+            composer_file = PromptComposer.from_file(
+                "test.custom", pathlib.Path(tmpdir), template_format="json", parser=parser_instance
+            )
             assert composer_file.list_sections() == ["role", "rules"]
             assert composer_file.get_section("role").content == "Custom Admin"
             assert composer_file.metadata == {"source": "injected"}
@@ -303,7 +307,7 @@ sections:
                 sections = [PromptSection(name="test", content="Legacy Content")]
                 return "Legacy Preamble", sections, "Legacy Epilogue"
 
-        composer = PromptComposer.from_text("some text", parser=MockLegacyParser())
+        composer = PromptComposer.from_text("some text", template_format="xml", parser=MockLegacyParser())
         assert composer.list_sections() == ["test"]
         assert composer.get_section("test").content == "Legacy Content"
         assert composer.metadata == {}
@@ -450,35 +454,22 @@ class TestJinjaRenderer:
         assert composer.render() == "test"
 
 
-class TestFormatDetectionDI:
-    def test_local_detector_injection_from_text(self):
-        class CustomDetector:
-            def detect(self, text: str, filepath=None) -> str:
-                return "yaml"
+class TestExplicitFormats:
+    def test_missing_template_format_raises(self):
+        import pytest
 
-        text = "sections:\n  - name: role\n    content: Custom"
-        composer = PromptComposer.from_text(text, template_format="auto", detector=CustomDetector())
-        assert "role" in composer.list_sections()
+        with pytest.raises(TypeError):
+            PromptComposer.from_text("some text")
 
-    def test_global_detector_registry(self):
-        from prompt_composer import FormatDetectorRegistry
+    def test_auto_format_is_rejected(self):
+        import pytest
 
-        original = FormatDetectorRegistry.get_default()
-        try:
+        with pytest.raises(ValueError):
+            PromptComposer.from_text("x", template_format="auto")
 
-            class DummyDetector:
-                def detect(self, text: str, filepath=None) -> str:
-                    return "toml"
+    def test_per_format_constructors_dispatch(self):
+        yaml_text = "sections:\n  - name: role\n    content: Custom"
+        assert PromptComposer.from_yaml(yaml_text).list_sections() == ["role"]
 
-            FormatDetectorRegistry.set_default(DummyDetector())
-            assert FormatDetectorRegistry.get_default() is not original
-
-            toml_text = """
-            [[sections]]
-            name = "dummy"
-            content = "Hello"
-            """
-            composer = PromptComposer.from_text(toml_text)
-            assert "dummy" in composer.list_sections()
-        finally:
-            FormatDetectorRegistry.set_default(original)
+        json_text = '{"sections": [{"name": "role", "content": "Custom"}]}'
+        assert PromptComposer.from_json(json_text).list_sections() == ["role"]

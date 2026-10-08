@@ -40,7 +40,7 @@ def test_toml_parsing():
     assert "Bye TOML" in rendered
 
 
-def test_toml_from_file_auto_detect():
+def test_toml_from_file_explicit_format():
     template = """
     [[sections]]
     name = "role"
@@ -49,5 +49,5 @@ def test_toml_from_file_auto_detect():
     with tempfile.TemporaryDirectory() as tmpdir:
         p_toml = pathlib.Path(tmpdir) / "prompt.toml"
         p_toml.write_text(template)
-        composer = PromptComposer.from_file("prompt.toml", pathlib.Path(tmpdir))
+        composer = PromptComposer.from_file("prompt.toml", pathlib.Path(tmpdir), template_format=TemplateFormat.TOML)
         assert composer.list_sections() == ["role"]

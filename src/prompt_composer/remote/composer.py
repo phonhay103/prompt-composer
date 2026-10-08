@@ -19,7 +19,7 @@ class RemotePromptFormatter:
         name: str,
         version: str | None = None,
         variable_style: str | VariableStyle = VariableStyle.BRACES,
-        template_format: str | TemplateFormat = TemplateFormat.AUTO,
+        template_format: str | TemplateFormat | None = None,
         renderer_name: str | None = None,
         **kwargs,
     ) -> "RemotePromptFormatter":
@@ -31,7 +31,9 @@ class RemotePromptFormatter:
             name: The name of the prompt.
             version: Optional version tag or number.
             variable_style: The variable style to use for interpolation.
-            template_format: The format of the prompt template (or AUTO to detect).
+            template_format: Explicit template format. If omitted, the provider's
+                ``RemotePromptData.format`` is used. Auto-detection is not supported,
+                so a ``ValueError`` is raised when neither yields a concrete format.
             renderer_name: The name of the template renderer engine.
             **kwargs: Extra parameters to pass to the provider's fetch_prompt method.
         """
@@ -42,10 +44,13 @@ class RemotePromptFormatter:
             with contextlib.suppress(ValueError):
                 v_style = VariableStyle(prompt_data.variable_style)
 
-        t_fmt = template_format
-        if prompt_data.format != "auto" and template_format == TemplateFormat.AUTO:
-            with contextlib.suppress(ValueError):
-                t_fmt = TemplateFormat(prompt_data.format)
+        # Resolve the format explicitly: caller override wins, else provider metadata.
+        t_fmt: str | TemplateFormat | None = template_format if template_format is not None else prompt_data.format
+        if t_fmt is None or t_fmt in ("", "auto"):
+            raise ValueError(
+                "Remote prompt format must be explicit; got 'auto'/missing. "
+                "Pass template_format=... or set RemotePromptData.format."
+            )
 
         composer = PromptComposer.from_text(
             raw_text=prompt_data.template,

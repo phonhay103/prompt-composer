@@ -34,7 +34,7 @@ def test_toon_parsing():
     assert "Bye TOON" in rendered
 
 
-def test_toon_from_file_auto_detect():
+def test_toon_from_file_explicit_format():
     template = """
     sections[1]{name,content}:
       role,System
@@ -42,5 +42,5 @@ def test_toon_from_file_auto_detect():
     with tempfile.TemporaryDirectory() as tmpdir:
         p_toon = pathlib.Path(tmpdir) / "prompt.toon"
         p_toon.write_text(template)
-        composer = PromptComposer.from_file("prompt.toon", pathlib.Path(tmpdir))
+        composer = PromptComposer.from_file("prompt.toon", pathlib.Path(tmpdir), template_format=TemplateFormat.TOON)
         assert composer.list_sections() == ["role"]

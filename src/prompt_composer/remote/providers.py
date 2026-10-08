@@ -88,7 +88,7 @@ class LangfuseProvider(RemotePromptProvider):
             fmt = "xml"
         else:
             template = str(prompt_val)
-            fmt = "auto"
+            fmt = None
 
         return RemotePromptData(
             template=template,

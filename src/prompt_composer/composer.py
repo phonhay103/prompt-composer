@@ -7,7 +7,7 @@ from typing import Any, override
 
 from prompt_composer.enums import OutputFormat, TemplateFormat, VariableStyle
 from prompt_composer.filters import DEFAULT_FILTERS
-from prompt_composer.formats import FormatDetector, FormatDetectorRegistry, FormatRegistry
+from prompt_composer.formats import FormatRegistry
 from prompt_composer.renderers import RendererRegistry
 from prompt_composer.section import PromptSection
 
@@ -68,12 +68,16 @@ class PromptComposer:
         name: str,
         version: str | None = None,
         variable_style: str | VariableStyle = VariableStyle.BRACES,
-        template_format: str | TemplateFormat = TemplateFormat.AUTO,
+        template_format: str | TemplateFormat | None = None,
         renderer_name: str | None = None,
         **kwargs,
     ) -> "PromptComposer":
         """
         Fetch a template from a remote registry provider and return an initialized PromptComposer.
+
+        The template format is resolved from the caller-supplied ``template_format`` or,
+        failing that, from the provider's ``RemotePromptData.format``. Auto-detection is not
+        supported: if neither yields a concrete format, a ``ValueError`` is raised.
         """
         from prompt_composer.remote.composer import RemotePromptFormatter
 
@@ -93,67 +97,39 @@ class PromptComposer:
         cls,
         filename: str,
         prompts_dir: pathlib.Path,
-        template_format: str | TemplateFormat = TemplateFormat.AUTO,
+        template_format: str | TemplateFormat,
         variable_style: str | VariableStyle = VariableStyle.BRACES,
         parser: Any | None = None,
         renderer_name: str | None = None,
-        detector: FormatDetector | None = None,
     ) -> "PromptComposer":
-        """
-        Load a template file and parse it into sections.
-        Automatically detects template format based on file extension and contents.
-        """
+        """Load a template file and parse it into sections using an explicit format."""
         filepath = prompts_dir / filename
         with open(filepath, encoding="utf-8") as f:
             raw_text = f.read()
 
-        if parser is None:
-            try:
-                fmt = TemplateFormat(template_format)
-            except ValueError:
-                raise ValueError(f"Unknown template format: {template_format}") from None
-
-            if fmt == TemplateFormat.AUTO:
-                active_detector = detector or FormatDetectorRegistry.get_default()
-                fmt = TemplateFormat(active_detector.detect(raw_text, filepath))
-        else:
-            fmt = template_format
-
-        try:
-            v_style = VariableStyle(variable_style)
-        except ValueError:
-            raise ValueError(f"Unknown variable style: {variable_style}") from None
-
         return cls.from_text(
             raw_text,
-            template_format=fmt,
-            variable_style=v_style,
+            template_format=template_format,
+            variable_style=variable_style,
             parser=parser,
             renderer_name=renderer_name,
-            detector=detector,
         )
 
     @classmethod
     def from_text(
         cls,
         raw_text: str,
-        template_format: str | TemplateFormat = TemplateFormat.AUTO,
+        template_format: str | TemplateFormat,
         variable_style: str | VariableStyle = VariableStyle.BRACES,
         parser: Any | None = None,
         renderer_name: str | None = None,
-        detector: FormatDetector | None = None,
     ) -> "PromptComposer":
-        """Parse raw prompt text into sections."""
+        """Parse raw prompt text into sections using the explicitly requested format."""
         if parser is None:
             try:
                 fmt = TemplateFormat(template_format)
             except ValueError:
                 raise ValueError(f"Unknown template format: {template_format}") from None
-
-            if fmt == TemplateFormat.AUTO:
-                active_detector = detector or FormatDetectorRegistry.get_default()
-                fmt = TemplateFormat(active_detector.detect(raw_text))
-
             parser = cls.get_parser(fmt)
 
         try:
@@ -179,10 +155,47 @@ class PromptComposer:
             composer._sections[section.name] = section
         return composer
 
-    @staticmethod
-    def detect_format(text: str) -> TemplateFormat:
-        """Detect template format based on content analysis using the default format detector."""
-        return FormatDetectorRegistry.get_default().detect(text)
+    # --- Explicit per-format factories ---
+
+    @classmethod
+    def from_json(cls, raw_text: str, **kwargs: Any) -> "PromptComposer":
+        """Create a PromptComposer from a JSON template."""
+        return cls.from_text(raw_text, template_format=TemplateFormat.JSON, **kwargs)
+
+    @classmethod
+    def from_yaml(cls, raw_text: str, **kwargs: Any) -> "PromptComposer":
+        """Create a PromptComposer from a YAML template."""
+        return cls.from_text(raw_text, template_format=TemplateFormat.YAML, **kwargs)
+
+    @classmethod
+    def from_xml(cls, raw_text: str, **kwargs: Any) -> "PromptComposer":
+        """Create a PromptComposer from an XML template."""
+        return cls.from_text(raw_text, template_format=TemplateFormat.XML, **kwargs)
+
+    @classmethod
+    def from_markdown(cls, raw_text: str, **kwargs: Any) -> "PromptComposer":
+        """Create a PromptComposer from a Markdown template."""
+        return cls.from_text(raw_text, template_format=TemplateFormat.MARKDOWN, **kwargs)
+
+    @classmethod
+    def from_baml(cls, raw_text: str, **kwargs: Any) -> "PromptComposer":
+        """Create a PromptComposer from a BAML template."""
+        return cls.from_text(raw_text, template_format=TemplateFormat.BAML, **kwargs)
+
+    @classmethod
+    def from_toml(cls, raw_text: str, **kwargs: Any) -> "PromptComposer":
+        """Create a PromptComposer from a TOML template."""
+        return cls.from_text(raw_text, template_format=TemplateFormat.TOML, **kwargs)
+
+    @classmethod
+    def from_toon(cls, raw_text: str, **kwargs: Any) -> "PromptComposer":
+        """Create a PromptComposer from a TOON template."""
+        return cls.from_text(raw_text, template_format=TemplateFormat.TOON, **kwargs)
+
+    @classmethod
+    def from_hcl(cls, raw_text: str, **kwargs: Any) -> "PromptComposer":
+        """Create a PromptComposer from an HCL template."""
+        return cls.from_text(raw_text, template_format=TemplateFormat.HCL, **kwargs)
 
     @staticmethod
     def get_parser(fmt: TemplateFormat) -> Any:

@@ -21,13 +21,13 @@ def main() -> None:
     for fmt in formats:
         print(f"=== Loading from {fmt.upper()} ===")
         filename = f"prompt_example.{fmt}"
-        composer = PromptComposer.from_file(filename, templates_dir)
+        composer = PromptComposer.from_file(filename, templates_dir, template_format=fmt)
         composer.set_variables(slots)
         print(composer.render())
         print()
 
     print("=== Custom Filters Example ===")
-    composer_yaml = PromptComposer.from_file("prompt_example.yaml", templates_dir)
+    composer_yaml = PromptComposer.from_file("prompt_example.yaml", templates_dir, template_format="yaml")
     composer_yaml.set_variables(slots)
     # Registering a custom filter
     composer_yaml.register_filter("exclaim", lambda v: f"{str(v).upper()}!!!")

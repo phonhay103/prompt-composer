@@ -19,32 +19,19 @@ A lightweight, section-based prompt composition library for LLM applications.
 pip install prompt-composer
 ```
 
-### Optional: advanced format detection
-
-By default `prompt-composer` detects template formats using file extensions and structural
-heuristics. If the optional [`magic-detector`](https://github.com/phonhay103/json-schema-transformer)
-suite is importable, it is used automatically for more accurate detection. This integration is
-**not** a package dependency (PyPI does not allow direct-URL dependencies, and the
-`magic-detector` name on PyPI belongs to an unrelated project). To enable it in a local/dev
-environment:
-
-```bash
-uv pip install "magic-detector @ git+https://github.com/phonhay103/json-schema-transformer.git@main#subdirectory=packages/magic_detector"
-```
-
-When it is absent, `prompt-composer` degrades gracefully to built-in detection.
+`prompt-composer` never guesses the template format. Pass it explicitly via
+`template_format=`, or use the dedicated per-format constructor.
 
 ## Quick Start
 
 ### From Template File
 
-`prompt-composer` can auto-detect format from the file extension (`.json`, `.yaml`, `.yml`, `.xml`, `.md`, `.markdown`) or structure.
+The format must be provided explicitly; nothing is inferred from the file extension.
 
 ```python
 from prompt_composer import PromptComposer, TemplateFormat
 
-# Auto-detects Markdown heading structure
-prompt = PromptComposer.from_file("planner_prompt.yaml", prompts_dir)
+prompt = PromptComposer.from_file("planner_prompt.yaml", prompts_dir, template_format=TemplateFormat.YAML)
 prompt.set_variable("available_tools", tools_json)
 prompt.set_variable("binding_instruction", "Use JMESPath syntax")
 
@@ -53,6 +40,22 @@ if not enable_fallback:
 
 text = prompt.render()
 ```
+
+### From a String (per-format constructors)
+
+Each supported format has a dedicated constructor, so the right parser is always used:
+
+```python
+from prompt_composer import PromptComposer
+
+PromptComposer.from_json('{"sections": [{"name": "role", "content": "You are a planner."}]}')
+PromptComposer.from_yaml("sections:\n  - name: role\n    content: You are a planner.")
+PromptComposer.from_xml("<role>You are a planner.</role>")
+PromptComposer.from_markdown("## role\nYou are a planner.")
+```
+
+Also available: `from_toml`, `from_toon`, `from_hcl`, `from_baml`. Alternatively pass
+`template_format=` to `PromptComposer.from_text(...)` or `PromptComposer.from_file(...)`.
 
 ### Programmatic Composition
 
@@ -116,7 +119,7 @@ markdown_prompt = prompt.render(output_format=OutputFormat.MARKDOWN)
 ### Introspection
 
 ```python
-prompt = PromptComposer.from_text("<role>Expert</role><tools>{tools}</tools>")
+prompt = PromptComposer.from_xml("<role>Expert</role><tools>{tools}</tools>")
 prompt.list_sections()  # ["role", "tools"]
 prompt.get_all_variables()  # ["tools"]
 prompt.get_unresolved_variables()  # ["tools"]

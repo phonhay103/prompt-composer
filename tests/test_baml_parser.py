@@ -47,7 +47,7 @@ def test_baml_comment_stripping():
     assert "Hello: {{ id }}" in content
 
 
-def test_single_function_nested_xml():
+def test_single_function_prompt_is_plain_text():
     template = """
     function GetTranslation(text: string) -> string {
       client openai
@@ -61,14 +61,15 @@ def test_single_function_nested_xml():
       "#
     }
     """
-    composer = PromptComposer.from_text(template)  # should auto-detect BAML
+    composer = PromptComposer.from_baml(template)
     assert composer.metadata["function_name"] == "GetTranslation"
     assert composer.metadata["client"] == "openai"
-    assert composer.list_sections() == ["role", "instructions"]
-    assert composer.get_section("role").content == "You are a translator."
+    # The embedded prompt is not parsed as a nested format; it stays plain text.
+    assert composer.list_sections() == ["GetTranslation"]
+    assert "You are a translator." in composer.get_section("GetTranslation").content
 
 
-def test_single_function_nested_markdown():
+def test_single_function_markdown_prompt_is_plain_text():
     template = """
     function GetSummary(text: string) -> string {
       client "claude-3"
@@ -80,10 +81,10 @@ def test_single_function_nested_markdown():
       "#
     }
     """
-    composer = PromptComposer.from_text(template)
+    composer = PromptComposer.from_baml(template)
     assert composer.metadata["function_name"] == "GetSummary"
-    assert composer.list_sections() == ["role", "context"]
-    assert composer.get_section("role").content == "You are a summarizer."
+    assert composer.list_sections() == ["GetSummary"]
+    assert "You are a summarizer." in composer.get_section("GetSummary").content
 
 
 def test_multiple_functions():
@@ -102,7 +103,7 @@ def test_multiple_functions():
       "#
     }
     """
-    composer = PromptComposer.from_text(template)
+    composer = PromptComposer.from_baml(template)
     assert composer.list_sections() == ["FuncOne", "FuncTwo"]
     assert composer.metadata["functions"]["FuncOne"]["client"] == "model-1"
     assert composer.metadata["functions"]["FuncTwo"]["client"] == "model-2"
@@ -110,7 +111,7 @@ def test_multiple_functions():
     assert "Prompt two: {y}" in composer.get_section("FuncTwo").content
 
 
-def test_baml_from_file_auto_detect():
+def test_baml_from_file_explicit_format():
     template = """
     class Query {
       q string
@@ -126,7 +127,7 @@ def test_baml_from_file_auto_detect():
     with tempfile.TemporaryDirectory() as tmpdir:
         p_baml = pathlib.Path(tmpdir) / "search.baml"
         p_baml.write_text(template)
-        composer = PromptComposer.from_file("search.baml", pathlib.Path(tmpdir))
+        composer = PromptComposer.from_file("search.baml", pathlib.Path(tmpdir), template_format=TemplateFormat.BAML)
         assert composer.metadata["function_name"] == "Search"
         assert composer.metadata["arguments"] == {"query": "Query"}
         assert composer.list_sections() == ["Search"]

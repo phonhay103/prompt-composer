@@ -61,36 +61,8 @@ class BamlHandler(FormatHandler):
 
             prompt_content = func["prompt"]
 
-            # Detect nested format within the prompt content
-            from prompt_composer.composer import PromptComposer
-
-            detected_fmt = PromptComposer.detect_format(prompt_content)
-
-            if detected_fmt == "xml":
-                if "<" in prompt_content and ">" in prompt_content:
-                    from prompt_composer.formats.xml.handler import XmlHandler
-
-                    preamble, sections, epilogue, p_metadata = XmlHandler().parse(prompt_content, variable_style)
-                    metadata.update(p_metadata)
-                else:
-                    sections = [PromptSection(name=func["name"], content=prompt_content, tag_wrap=False)]
-            elif detected_fmt == "markdown":
-                from prompt_composer.formats.markdown.handler import MarkdownHandler
-
-                preamble, sections, epilogue, p_metadata = MarkdownHandler().parse(prompt_content, variable_style)
-                metadata.update(p_metadata)
-            elif detected_fmt == "json":
-                from prompt_composer.formats.json.handler import JsonHandler
-
-                preamble, sections, epilogue, p_metadata = JsonHandler().parse(prompt_content, variable_style)
-                metadata.update(p_metadata)
-            elif detected_fmt == "yaml":
-                from prompt_composer.formats.yaml.handler import YamlHandler
-
-                preamble, sections, epilogue, p_metadata = YamlHandler().parse(prompt_content, variable_style)
-                metadata.update(p_metadata)
-            else:
-                sections = [PromptSection(name=func["name"], content=prompt_content, tag_wrap=False)]
+            # The embedded prompt content is treated as plain text (no format auto-detection).
+            sections = [PromptSection(name=func["name"], content=prompt_content, tag_wrap=False)]
         elif len(functions_data) > 1:
             # Multiple functions case
             for func in functions_data:

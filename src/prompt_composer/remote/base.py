@@ -9,7 +9,7 @@ class RemotePromptData(BaseModel):
     """Standardized representation of a remote prompt template and its configuration."""
 
     template: str
-    format: str = "auto"
+    format: str | None = None
     variable_style: str = "braces"
     metadata: dict[str, Any] = Field(default_factory=dict)
     default_variables: dict[str, Any] = Field(default_factory=dict)

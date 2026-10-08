@@ -39,6 +39,7 @@ def test_in_memory_provider_and_formatter():
     prompts = {
         "text_prompt": RemotePromptData(
             template="You are a {role}. Task: {task}",
+            format="xml",
             default_variables={"role": "assistant"},
             metadata={"domain": "math"},
         ),
@@ -63,7 +64,7 @@ def test_in_memory_provider_and_formatter():
     rendered_override = formatter.format({"role": "tutor", "task": "solve 1+1"})
     assert "You are a tutor." in rendered_override
 
-    # Test XML format detection & rendering
+    # Test XML format rendering
     xml_formatter = RemotePromptFormatter.from_remote(provider, "xml_prompt")
     xml_rendered = xml_formatter.format({"role": "scientist", "input": "simulate"})
     assert "<system>\nYou are a scientist.\n</system>" in xml_rendered
@@ -88,7 +89,9 @@ def test_langfuse_provider_text_prompt():
         transport=transport,
     )
 
-    formatter = RemotePromptFormatter.from_remote(provider, "tell-joke", version="3", label="production")
+    formatter = RemotePromptFormatter.from_remote(
+        provider, "tell-joke", version="3", label="production", template_format="xml"
+    )
 
     # Verify request headers & params
     req = transport.last_request
@@ -144,10 +147,18 @@ def test_prompt_composer_from_remote_convenience():
     prompts = {"test_prompt": "Hello {name}!"}
     provider = InMemoryProvider(prompts)
 
-    composer = PromptComposer.from_remote(provider, "test_prompt")
+    composer = PromptComposer.from_remote(provider, "test_prompt", template_format="xml")
     assert isinstance(composer, PromptComposer)
     composer.set_variable("name", "Alice")
     assert composer.render() == "Hello Alice!"
+
+
+def test_remote_missing_format_raises():
+    import pytest
+
+    provider = InMemoryProvider({"p": "Hello {name}!"})
+    with pytest.raises(ValueError):
+        RemotePromptFormatter.from_remote(provider, "p")
 
 
 def test_remote_provider_registry():

@@ -1,6 +1,6 @@
 [project]
 name = "prompt-composer"
-version = "0.1.0"
+version = "0.2.0"
 description = "Section-based prompt composition and slot variable management for LLM applications"
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -23,16 +23,6 @@ dependencies = [
     "jinja2>=3.1.2",
     "pydantic>=2.0.0",
 ]
-
-# NOTE: `magic-detector` is an optional, non-PyPI integration used only by
-# `DefaultFormatDetector` for advanced file-type detection. It is intentionally
-# NOT declared as a dependency here because:
-#   1. PyPI rejects direct URL (git) dependencies in `requires_dist`.
-#   2. The name `magic-detector` on PyPI is an unrelated placeholder package.
-# The package degrades gracefully to built-in extension/heuristic detection when
-# it is not installed. See README "Optional: advanced format detection".
-# To enable it in a local/dev environment:
-#   uv pip install "magic-detector @ git+https://github.com/phonhay103/json-schema-transformer.git@main#subdirectory=packages/magic_detector"
 
 [project.urls]
 Homepage = "https://github.com/phonhay103/prompt-composer"

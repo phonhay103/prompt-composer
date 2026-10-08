@@ -4,7 +4,6 @@ from typing import ClassVar
 
 from prompt_composer.formats.baml.handler import BamlHandler
 from prompt_composer.formats.base import FormatHandler
-from prompt_composer.formats.detector import DefaultFormatDetector, FormatDetector, FormatDetectorRegistry
 from prompt_composer.formats.hcl.handler import HclHandler
 from prompt_composer.formats.json.handler import JsonHandler
 from prompt_composer.formats.markdown.handler import MarkdownHandler
@@ -46,8 +45,5 @@ FormatRegistry.register("toon", ToonHandler())
 FormatRegistry.register("hcl", HclHandler())
 
 __all__ = [
-    "DefaultFormatDetector",
-    "FormatDetector",
-    "FormatDetectorRegistry",
     "FormatRegistry",
 ]
