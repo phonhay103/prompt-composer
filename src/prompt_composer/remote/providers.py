@@ -23,10 +23,8 @@ class LangfuseProvider(RemotePromptProvider):
         self.host = (host or os.environ.get("LANGFUSE_HOST") or "https://cloud.langfuse.com").rstrip("/")
         self.transport = transport or UrllibRemoteTransport()
 
-        if not self.public_key or not self.secret_key:
-            # We don't raise immediately to allow lazy initialization/mocking in tests,
-            # but we will check when fetch_prompt is called.
-            pass
+        # We don't raise immediately to allow lazy initialization/mocking in tests,
+        # but we will check credentials when fetch_prompt is called.
 
     @override
     def fetch_prompt(self, name: str, version: str | None = None, **kwargs) -> RemotePromptData:
@@ -38,7 +36,7 @@ class LangfuseProvider(RemotePromptProvider):
             version: Optional version number (or version string/tag).
             **kwargs: Extra query parameters (e.g. `label` for production/staging tag).
         """
-        if not self.public_key or not self.secret_key:
+        if self.public_key in (None, "") or self.secret_key in (None, ""):
             raise ValueError(
                 "Langfuse credentials missing. Please set LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY, "
                 "or pass them to the LangfuseProvider constructor."
@@ -104,7 +102,7 @@ class InMemoryProvider(RemotePromptProvider):
 
     def __init__(self, prompts: dict[str, RemotePromptData | str] | None = None) -> None:
         self.prompts: dict[str, RemotePromptData] = {}
-        if prompts:
+        if prompts is not None:
             for name, data in prompts.items():
                 if isinstance(data, str):
                     self.prompts[name] = RemotePromptData(template=data)
@@ -114,7 +112,7 @@ class InMemoryProvider(RemotePromptProvider):
     @override
     def fetch_prompt(self, name: str, version: str | None = None, **_kwargs) -> RemotePromptData:
         """Fetch prompt from the local dictionary."""
-        key = f"{name}:{version}" if version else name
+        key = f"{name}:{version}" if version is not None and version != "" else name
         if key in self.prompts:
             return self.prompts[key]
         if name in self.prompts:

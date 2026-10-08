@@ -1,15 +1,15 @@
 # prompt-composer
 
-A lightweight, zero-dependency, section-based prompt composition library for LLM applications.
+A lightweight, section-based prompt composition library for LLM applications.
 
 ## Features
 
 - **Section-Based Composition**: Build prompts from named sections that can be added, updated, or removed independently.
 - **Template Variables**: Use `{variable}` or `{{variable}}` placeholders within sections, filled at render time with global or section-scoped values.
-- **Multi-Format Parsers**: Load and parse prompt templates in XML (`<section>...</section>`), YAML, JSON, or Markdown (`## Section Heading`) formats.
+- **Multi-Format Parsers**: Load and parse prompt templates in XML (`<section>...</section>`), YAML, JSON, Markdown (`## Section Heading`), TOML, TOON, HCL, and BAML formats.
 - **Forced Output Formatting**: Output the final prompt rendered inside XML tags or as Markdown headers dynamically.
 - **StrEnum Validation**: Type-safe configuration via `TemplateFormat`, `VariableStyle`, and `OutputFormat` enums.
-- **Zero Dependencies**: Pure Python standard library — no Pydantic, no LangChain, no external packages.
+- **Minimal Dependencies**: Only `pyyaml`, `jinja2`, and `pydantic`. Advanced file-type detection is an optional integration.
 - **Method Chaining**: Fluent API for concise prompt construction.
 - **Optimized Performance**: C-based string jumps and variable resolution caching.
 
@@ -18,6 +18,21 @@ A lightweight, zero-dependency, section-based prompt composition library for LLM
 ```bash
 pip install prompt-composer
 ```
+
+### Optional: advanced format detection
+
+By default `prompt-composer` detects template formats using file extensions and structural
+heuristics. If the optional [`magic-detector`](https://github.com/phonhay103/json-schema-transformer)
+suite is importable, it is used automatically for more accurate detection. This integration is
+**not** a package dependency (PyPI does not allow direct-URL dependencies, and the
+`magic-detector` name on PyPI belongs to an unrelated project). To enable it in a local/dev
+environment:
+
+```bash
+uv pip install "magic-detector @ git+https://github.com/phonhay103/json-schema-transformer.git@main#subdirectory=packages/magic_detector"
+```
+
+When it is absent, `prompt-composer` degrades gracefully to built-in detection.
 
 ## Quick Start
 

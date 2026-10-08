@@ -74,6 +74,6 @@ class RemotePromptFormatter:
             variables: Variables to bind before rendering.
             output_format: Optional forced output formatting (e.g. XML, Markdown).
         """
-        if variables:
+        if variables is not None:
             self.composer.set_variables(variables)
         return self.composer.render(output_format=output_format)

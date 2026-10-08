@@ -45,7 +45,7 @@ class PromptComposer:
             else:
                 self._renderer_name = "simple_braces"
 
-        if sections:
+        if sections is not None:
             for section in sections:
                 self._sections[section.name] = section
 
@@ -180,7 +180,7 @@ class PromptComposer:
         return composer
 
     @staticmethod
-    def detect_format(text: str) -> str:
+    def detect_format(text: str) -> TemplateFormat:
         """Detect template format based on content analysis using the default format detector."""
         return FormatDetectorRegistry.get_default().detect(text)
 

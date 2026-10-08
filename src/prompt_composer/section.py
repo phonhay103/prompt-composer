@@ -43,13 +43,11 @@ class PromptSection:
 
             cond_fn = cast(Callable[[dict[str, Any]], bool], self.condition)
             return bool(cond_fn(variables))
-        if isinstance(self.condition, str):
-            cond_str = self.condition.strip()
-            # If condition contains spaces or standard operators, parse it
-            if any(op in cond_str for op in (" AND ", " OR ", "NOT ", "(", ")")):
-                return self._evaluate_boolean_expression(cond_str, variables)
-            return bool(variables.get(cond_str))
-        return True
+        cond_str = self.condition.strip()
+        # If condition contains spaces or standard operators, parse it
+        if any(op in cond_str for op in (" AND ", " OR ", "NOT ", "(", ")")):
+            return self._evaluate_boolean_expression(cond_str, variables)
+        return bool(variables.get(cond_str))
 
     def _evaluate_boolean_expression(self, expr: str, variables: dict[str, Any]) -> bool:
         """
@@ -89,7 +87,7 @@ class PromptSection:
             if idx >= num_tokens:
                 raise ValueError("Unexpected end of expression")
             token = tokens[idx]
-            if expected and token != expected:
+            if expected is not None and token != expected:
                 raise ValueError(f"Expected {expected}, got {token}")
             idx += 1
             return token
@@ -220,7 +218,7 @@ class PromptSection:
             content_str = str(self.content)
 
         rendered: str = content_str
-        if variables:
+        if variables is not None:
             active_filters = filters if filters is not None else DEFAULT_FILTERS
             if renderer is not None:
                 rendered = str(renderer.render(content_str, variables, active_filters))
@@ -337,5 +335,5 @@ class PromptSection:
             content_desc = f"'{self.content[:20]}...'"
             vars_list = self.get_variables()
         var_info = f", variables={vars_list}" if vars_list else ""
-        cond_info = f", condition={self.condition}" if self.condition else ""
+        cond_info = f", condition={self.condition}" if self.condition not in (None, "") else ""
         return f"PromptSection(name='{self.name}', content={content_desc}{var_info}{cond_info})"

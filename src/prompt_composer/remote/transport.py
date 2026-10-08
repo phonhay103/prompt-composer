@@ -25,8 +25,8 @@ class UrllibRemoteTransport(RemoteTransport):
         if not url.startswith(("http://", "https://")):
             raise ValueError(f"URL scheme must be http or https, got: {url}")
 
-        req_headers = dict(headers) if headers else {}
-        if params:
+        req_headers = dict(headers) if headers is not None else {}
+        if params is not None:
             # Filter out None values from params
             filtered_params = {k: str(v) for k, v in params.items() if v is not None}
             if filtered_params:

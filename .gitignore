@@ -1,0 +1,23 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[codz]
+*$py.class
+
+# Environments & Packaging
+.venv/
+.uv/
+dist/
+build/
+*.egg-info/
+node_modules/
+
+# Test / lint / type caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ty/
+
+# Logs & OS
+*.log
+.DS_Store
+.env
